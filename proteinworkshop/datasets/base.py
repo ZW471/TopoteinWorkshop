@@ -336,7 +336,7 @@ class ProteinDataset(Dataset):
         if self.in_memory:
             logger.info("Reading data into memory")
             self.data = [
-                torch.load(pathlib.Path(self.root) / "processed" / f)
+                torch.load(pathlib.Path(self.root) / "processed" / f, weights_only=False)
                 for f in tqdm(self.processed_file_names)
             ]
 

@@ -24,6 +24,8 @@ from proteinworkshop.types import OrientationTensor, ScalarNodeFeature
 from .sequence_features import amino_acid_one_hot
 from .utils import _normalize
 
+from .sse import sse_onehot
+
 
 @jaxtyped(typechecker=typechecker)
 def compute_scalar_node_features(
@@ -78,6 +80,8 @@ def compute_scalar_node_features(
             )
         elif feature == "sequence_positional_encoding":
             continue
+        elif feature == "secondary_structure_one_hot":
+            feats.append(sse_onehot(x))
         else:
             raise ValueError(f"Node feature {feature} not recognised.")
     feats = [feat.unsqueeze(1) if feat.ndim == 1 else feat for feat in feats]

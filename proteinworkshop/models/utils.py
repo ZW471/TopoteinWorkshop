@@ -69,6 +69,7 @@ def get_input_dim(
     feat_sizes: Dict[str, int] = {
         ### scalar node features ###
         "amino_acid_one_hot": 23,  # 20 + 3
+        "secondary_structure_one_hot": 3,
         "kappa": 2,
         "alpha": 2,
         "dihedrals": 6,

@@ -23,7 +23,7 @@ from proteinworkshop.types import (
     ScalarEdgeFeature,
     ScalarNodeFeature,
     VectorEdgeFeature,
-    VectorNodeFeature,
+    VectorNodeFeature, ScalarCellFeature, VectorCellFeature,
 )
 
 StructureRepresentation = Literal["ca", "ca_bb", "full_atom"]
@@ -144,12 +144,12 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         edge_types: List[str],
         scalar_edge_features: List[ScalarEdgeFeature],
         vector_edge_features: List[VectorEdgeFeature],
-        cell_typeset: List[str],
-        scaler_cell_features,
-        vector_cell_features,
+        cell_types: List[str],
+        scaler_cell_features: List[ScalarCellFeature],
+        vector_cell_features: List[VectorCellFeature],
     ):
         super(TopoteinFeaturiser, self).__init__(representation, scalar_node_features, vector_node_features, edge_types, scalar_edge_features, vector_edge_features)
-        self.cell_typeset = cell_typeset
+        self.cell_typeset = cell_types
         self.scaler_cell_features = scaler_cell_features
         self.vector_cell_features = vector_cell_features
 
@@ -158,7 +158,12 @@ class TopoteinFeaturiser(ProteinFeaturiser):
     ) -> Union[Batch, ProteinBatch]:
         batch = super().forward(batch)
 
+        # TODO: add logic for attaching cells, maybe see how the edges are constructed
+
         return batch
+
+    def __repr__(self) -> str:
+        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features}, vector_edge_features={self.vector_edge_features}, cell_types={self.cell_typeset}, scaler_cell_features={self.scaler_cell_features}, vector_cell_features={self.vector_cell_features})"
 
 
 if __name__ == "__main__":

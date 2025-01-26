@@ -135,6 +135,31 @@ class ProteinFeaturiser(nn.Module):
     def __repr__(self) -> str:
         return f"ProteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features}, vector_edge_features={self.vector_edge_features})"
 
+class TopoteinFeaturiser(ProteinFeaturiser):
+    def __init__(
+        self,
+        representation: StructureRepresentation,
+        scalar_node_features: List[ScalarNodeFeature],
+        vector_node_features: List[VectorNodeFeature],
+        edge_types: List[str],
+        scalar_edge_features: List[ScalarEdgeFeature],
+        vector_edge_features: List[VectorEdgeFeature],
+        cell_typeset: List[str],
+        scaler_cell_features,
+        vector_cell_features,
+    ):
+        super(TopoteinFeaturiser, self).__init__(representation, scalar_node_features, vector_node_features, edge_types, scalar_edge_features, vector_edge_features)
+        self.cell_typeset = cell_typeset
+        self.scaler_cell_features = scaler_cell_features
+        self.vector_cell_features = vector_cell_features
+
+    def forward(
+        self, batch: Union[Batch, ProteinBatch]
+    ) -> Union[Batch, ProteinBatch]:
+        batch = super().forward(batch)
+
+        return batch
+
 
 if __name__ == "__main__":
     import hydra

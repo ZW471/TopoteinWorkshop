@@ -24,7 +24,7 @@ from proteinworkshop.types import OrientationTensor, ScalarNodeFeature
 from .sequence_features import amino_acid_one_hot
 from .utils import _normalize
 
-from .sse import sse_onehot
+from topotein.features.sse import sse_onehot
 
 
 @jaxtyped(typechecker=typechecker)

@@ -1,3 +1,9 @@
+import warnings
+
+from beartype.roar import BeartypeDecorHintPep585DeprecationWarning
+warnings.filterwarnings("ignore", category=BeartypeDecorHintPep585DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
 import importlib.metadata
 
 from graphein import verbose

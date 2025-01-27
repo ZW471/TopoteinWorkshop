@@ -1,4 +1,4 @@
-_target_: proteinworkshop.features.factory.TopoteinFeaturiser
+_target_: topotein.features.factory.TopoteinFeaturiser
 representation: CA
 scalar_node_features:
   - amino_acid_one_hot

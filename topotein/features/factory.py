@@ -4,6 +4,8 @@ from graphein.protein.tensor.data import ProteinBatch
 from torch_geometric.data import Batch
 
 from proteinworkshop.features.factory import ProteinFeaturiser, StructureRepresentation
+from topotein.features.cell_features import compute_scalar_cell_features, compute_vector_cell_features
+from topotein.features.cells import compute_cells
 from topotein.features.sse import sse_onehot
 from proteinworkshop.types import ScalarNodeFeature, VectorNodeFeature, ScalarEdgeFeature, VectorEdgeFeature, \
     ScalarCellFeature, VectorCellFeature
@@ -37,7 +39,24 @@ class TopoteinFeaturiser(ProteinFeaturiser):
 
         batch = super().forward(batch)
 
-        # TODO: add logic for attaching cells, maybe see how the edges are constructed
+        # cells
+        if self.cell_types:
+            batch.cell_index, batch.cell_type = compute_cells(
+                batch, self.cell_types
+            )
+            batch.num_relation = len(self.cell_types)
+
+        # Scalar cell features
+        if self.scalar_cell_features:
+            batch.cell_attr = compute_scalar_cell_features(
+                batch, self.scalar_cell_features
+            )
+
+        # Vector cell features
+        if self.vector_cell_features:
+            batch = compute_vector_cell_features(
+                batch, self.vector_cell_features
+            )
 
         return batch
 

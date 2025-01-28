@@ -13,11 +13,14 @@ from topotein.features.sse import get_sse_cell_group
 
 from numpy import unique
 
+CATEGORY_DSSP_3 = {"H", "E", "C"}
+CATEGORY_DSSP_8 = {"H", "B", "E", "G", "I", "T", "S", "C"}
+
 
 @typechecker
-def compute_cells(
+def compute_sses(
         x: Union[Data, Batch, Protein, ProteinBatch],
-        cell_types: Union[ListConfig, List[str]],
+        sse_types: Union[ListConfig, List[str]],
 ) -> Tuple[torch.Tensor, Tuple[Tuple[int, ...], ...], tnx.CellComplex]:
     """
     Orchestrates the computation of cells for a given data object.
@@ -31,10 +34,10 @@ def compute_cells(
 
     :param x: The input data object to compute cells for
     :type x: Union[Data, Batch, Protein, ProteinBatch]
-    :param cell_types: List of cell types to compute. Must be a sequence of
+    :param sse_types: List of cell types to compute. Must be a sequence of
         ``knn_{x}``, ``eps_{x}``, (where ``{x}`` should be replaced by a
         numerical value) ``seq_forward``, ``seq_backward``.
-    :type cell_types: Union[ListConfig, List[str]]
+    :type sse_types: Union[ListConfig, List[str]]
     :raises ValueError: Raised if ``x`` is not a ``torch_geometric`` Data or
         Batch object
     :raises NotImplementedError: Raised if a cell type is not implemented
@@ -43,33 +46,34 @@ def compute_cells(
         shape (``2 x |C|``).
     :rtype: Tuple[torch.Tensor, Tuple[Tuple[int, ...], ...], tnx.CellComplex]
     """
-    # Handle batch
-    cc = to_cell_complex(x)
+    # check if sse types are valid
+    sse_types = set(sse_types)
+    if len(sse_types.difference(CATEGORY_DSSP_3)) == 0:  # no type that is not in 3-class category
+        is_using_simple_categories = True
+    elif len(sse_types.union(CATEGORY_DSSP_8)) > 0:  # some types are in the 8-class category
+        is_using_simple_categories = False
+    else:  # some types are out of the 8-class category
+        raise ValueError(f"invalid sse types, valid sse types are: {CATEGORY_DSSP_8}")
 
-    # Iterate over cell types
-    for cell_type in cell_types:
-        if cell_type.startswith("sse"):
-            sse_requirements = list(map(int, cell_type.split("_")[1:]))
-            cc.complex['sse_type_num'] = sse_requirements[0]
-            if len(sse_requirements) == 2:
-                sse_minimal_size = sse_requirements[1]
-            else:
-                sse_minimal_size = 3
-            cells = get_sse_cell_group(x.sse, cc.complex['sse_type_num'], minimal_group_size=sse_minimal_size)
-            for key, val in cells.items():
-                cc.add_cells_from(val, rank=2, sse_type=key, cell_type=cell_type)
+    # construct cell complex
+    sse_group_cc = to_cell_complex(x)
 
-        else:
-            raise NotImplementedError(f"Cell type {cell_type} not implemented")
+    if is_using_simple_categories:
+        sse_group_cc.complex['sse_type_num'] = len(sse_types)
 
-
+        cells = get_sse_cell_group(x.sse, sse_group_cc.complex['sse_type_num'], minimal_group_size=3)
+        for key, val in cells.items():
+            sse_group_cc.add_cells_from(val, rank=2, sse_type=key)
+    else:
+        raise NotImplementedError(f"only 3-class scheme implemented")
 
     # cell index (the nodes contained in a cell)
-    cells, cell_types = zip(*cc.get_cell_attributes('cell_type', rank=2).items())
-    _, cell_types = unique(cell_types, return_inverse=True)
-    cell_types = torch.tensor(cell_types, dtype=torch.long)
+    sse_cells, sse_cell_types = zip(*sse_group_cc.get_cell_attributes('sse_type', rank=2).items())
+    _, sse_cell_types = unique(sse_cell_types, return_inverse=True)
+    sse_cell_types = torch.tensor(sse_cell_types, dtype=torch.long)
+    sse_cell_types = torch.nn.functional.one_hot(sse_cell_types, num_classes=len(sse_types))
 
-    return cell_types, cells, cc
+    return sse_cell_types, sse_cells, sse_group_cc
 
 
 @typechecker

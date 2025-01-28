@@ -25,7 +25,7 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         vector_cell_features: List[VectorCellFeature],
     ):
         super(TopoteinFeaturiser, self).__init__(representation, scalar_node_features, vector_node_features, edge_types, scalar_edge_features, vector_edge_features)
-        self.cell_typeset = cell_types
+        self.cell_types = cell_types
         self.scaler_cell_features = scaler_cell_features
         self.vector_cell_features = vector_cell_features
 
@@ -33,7 +33,7 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         self, batch: Union[Batch, ProteinBatch]
     ) -> Union[Batch, ProteinBatch]:
 
-        for cell_type in self.cell_typeset:
+        for cell_type in self.cell_types:
             if cell_type.startswith("sse"):
                 batch.sse = sse_onehot(batch)
 
@@ -61,4 +61,4 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         return batch
 
     def __repr__(self) -> str:
-        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features}, vector_edge_features={self.vector_edge_features}, cell_types={self.cell_typeset}, scaler_cell_features={self.scaler_cell_features}, vector_cell_features={self.vector_cell_features})"
+        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features}, vector_edge_features={self.vector_edge_features}, cell_types={self.cell_types}, scaler_cell_features={self.scaler_cell_features}, vector_cell_features={self.vector_cell_features})"

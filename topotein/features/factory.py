@@ -21,12 +21,12 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         scalar_edge_features: List[ScalarEdgeFeature],
         vector_edge_features: List[VectorEdgeFeature],
         cell_types: List[str],
-        scaler_cell_features: List[ScalarCellFeature],
+        scalar_cell_features: List[ScalarCellFeature],
         vector_cell_features: List[VectorCellFeature],
     ):
         super(TopoteinFeaturiser, self).__init__(representation, scalar_node_features, vector_node_features, edge_types, scalar_edge_features, vector_edge_features)
         self.cell_types = cell_types
-        self.scaler_cell_features = scaler_cell_features
+        self.scalar_cell_features = scalar_cell_features
         self.vector_cell_features = vector_cell_features
 
     def forward(
@@ -44,7 +44,7 @@ class TopoteinFeaturiser(ProteinFeaturiser):
             batch.cell_index, batch.cell_type = compute_cells(
                 batch, self.cell_types
             )
-            batch.num_relation = len(self.cell_types)
+            batch.num_structure = len(self.cell_types)
 
         # Scalar cell features
         if self.scalar_cell_features:
@@ -61,4 +61,4 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         return batch
 
     def __repr__(self) -> str:
-        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features}, vector_edge_features={self.vector_edge_features}, cell_types={self.cell_types}, scaler_cell_features={self.scaler_cell_features}, vector_cell_features={self.vector_cell_features})"
+        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features}, vector_edge_features={self.vector_edge_features}, cell_types={self.cell_types}, scalar_cell_features={self.scalar_cell_features}, vector_cell_features={self.vector_cell_features})"

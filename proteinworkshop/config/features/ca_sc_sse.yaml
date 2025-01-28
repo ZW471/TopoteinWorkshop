@@ -16,7 +16,7 @@ scalar_edge_features:
 vector_edge_features: []
 cell_types:
   - sse_3
-scaler_cell_features:
+scalar_cell_features:
   - secondary_structure_one_hot
   - secondary_structure_length
 vector_cell_features: []

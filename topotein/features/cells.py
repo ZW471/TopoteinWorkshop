@@ -11,18 +11,20 @@ import toponetx as tnx
 
 from topotein.features.sse import get_sse_cell_group
 
+from numpy import unique
+
 
 @typechecker
 def compute_cells(
         x: Union[Data, Batch, Protein, ProteinBatch],
         cell_types: Union[ListConfig, List[str]],
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> Tuple[torch.Tensor, Tuple[Tuple[int, ...], ...]]:
     """
     Orchestrates the computation of cells for a given data object.
 
     This function returns a tuple of tensors, where the first tensor is a
-    tensor indicating the cell type of shape (``|E|``) and the second are the
-    cell indices of shape (``2 x |E|``).
+    tensor indicating the cell type of shape (``|C|``) and the second are the
+    cell indices of shape (``2 x |C|``).
 
     The cell type tensor can be used to mask out cells of a particular type
     downstream.
@@ -35,14 +37,14 @@ def compute_cells(
     :type cell_types: Union[ListConfig, List[str]]
     :raises ValueError: Raised if ``x`` is not a ``torch_geometric`` Data or
         Batch object
-    :raises NotImplementedError: Raised if an cell type is not implemented
+    :raises NotImplementedError: Raised if a cell type is not implemented
     :return: Tuple of tensors, where the first tensor is a tensor indicating
-        the cell type of shape (``|E|``) and the second are the cell indices of
-        shape (``2 x |E|``).
+        the cell type of shape (``|C|``) and the second are the cell indices of
+        shape (``2 x |C|``).
     :rtype: Tuple[torch.Tensor, torch.Tensor]
     """
     # Handle batch
-    cc = to_cell_complex(x)  # TODO: attach cells
+    cc = to_cell_complex(x)
 
     # Iterate over cell types
     for cell_type in cell_types:
@@ -60,18 +62,17 @@ def compute_cells(
         else:
             raise NotImplementedError(f"Cell type {cell_type} not implemented")
 
-    # Compute cell types
-    indxs = torch.cat(
-        [
-            torch.ones_like(e_idx[0, :]) * idx
-            for idx, e_idx in enumerate(cells)
-        ],
-        dim=0,
-    ).unsqueeze(0)
-    cells = torch.cat(cells, dim=1)
 
-    return cells, indxs
 
+    # cell index (the nodes contained in a cell)
+    cells, cell_types = zip(*cc.get_cell_attributes('cell_type', rank=2).items())
+    _, cell_types = unique(cell_types, return_inverse=True)
+    cell_types = torch.tensor(cell_types, dtype=torch.long)
+
+    return cell_types, cells
+
+
+@typechecker
 def to_cell_complex(x: Union[Data, Batch, Protein, ProteinBatch]) -> tnx.CellComplex:
     cc = tnx.CellComplex()
     cc._add_nodes_from(list(range(x.num_nodes)))
@@ -83,3 +84,11 @@ def to_cell_complex(x: Union[Data, Batch, Protein, ProteinBatch]) -> tnx.CellCom
             edge_type=edge_relation,
         )
     return cc
+
+
+@typechecker
+def get_cell_attr_onehot(cell_complex: tnx.CellComplex, attr_name: str):
+    cell_types = torch.tensor(list(cell_complex.get_cell_attributes(attr_name, rank=2).values()), dtype=torch.long)
+    class_num = f'{attr_name}_num'
+    cell_type_onehot = torch.nn.functional.one_hot(cell_types, num_classes=cell_complex.complex[class_num])
+    return cell_type_onehot

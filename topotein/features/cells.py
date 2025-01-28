@@ -80,7 +80,6 @@ def compute_sses(
 def to_cell_complex(x: Union[Data, Batch, Protein, ProteinBatch]) -> tnx.CellComplex:
     cc = tnx.CellComplex()
     cc._add_nodes_from(list(range(x.num_nodes)))
-    print(cc.number_of_nodes())
 
     for edge_relation in range(x.num_relation):
         cc.add_edges_from(

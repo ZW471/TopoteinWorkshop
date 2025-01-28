@@ -37,13 +37,13 @@ def compute_scalar_cell_features(
     feats = []
     for feature in features:
         if feature == "sse_size":
-            feats.append(compute_cell_sizes(x.sse_cell_complex))
+            feats.append(compute_cell_sizes(x.sse_cell_complex).to(x.x.device))
         elif feature == "node_features":
             feats.append(get_means_by_group(x.x, x.sse_cell_index))
         elif feature == "edge_features":  # TODO: but unsure if this is needed because edge features contains too much node features
             raise NotImplementedError
         elif feature == "sse_one_hot":
-            feats.append(x.sse)
+            feats.append(x.sse.to(x.x.device))
         elif feature == "orientation":
             raise NotImplementedError
         elif feature == "pos_emb":  # TODO: investigate whether edge pos_emb is actually used first
@@ -104,7 +104,7 @@ def compute_cell_sizes(cell_complex: tnx.CellComplex) -> torch.Tensor:
         cell complex.
     :rtype: torch.Tensor
     """
-    return torch.Tensor(list(map(cell_complex.size, iter(cell_complex.cells))))
+    return torch.tensor(list(map(cell_complex.size, iter(cell_complex.cells))))
 
 
 @jaxtyped(typechecker=typechecker)

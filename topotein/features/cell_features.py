@@ -36,7 +36,7 @@ def compute_scalar_cell_features(
     feats = []
     for feature in features:
         if feature == "cell_size":  # TODO
-            feats.append(compute_cell_sizes())
+            feats.append(compute_cell_sizes(x.cells))
         elif feature == "node_features":  # TODO
             n1, n2 = x.x[x.cell_index[0]], x.x[x.cell_index[1]]
             feats.append(torch.cat([n1, n2], dim=1))

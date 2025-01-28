@@ -18,7 +18,7 @@ from numpy import unique
 def compute_cells(
         x: Union[Data, Batch, Protein, ProteinBatch],
         cell_types: Union[ListConfig, List[str]],
-) -> Tuple[torch.Tensor, Tuple[Tuple[int, ...], ...]]:
+) -> Tuple[torch.Tensor, Tuple[Tuple[int, ...], ...], tnx.CellComplex]:
     """
     Orchestrates the computation of cells for a given data object.
 
@@ -41,7 +41,7 @@ def compute_cells(
     :return: Tuple of tensors, where the first tensor is a tensor indicating
         the cell type of shape (``|C|``) and the second are the cell indices of
         shape (``2 x |C|``).
-    :rtype: Tuple[torch.Tensor, torch.Tensor]
+    :rtype: Tuple[torch.Tensor, Tuple[Tuple[int, ...], ...], tnx.CellComplex]
     """
     # Handle batch
     cc = to_cell_complex(x)
@@ -69,7 +69,7 @@ def compute_cells(
     _, cell_types = unique(cell_types, return_inverse=True)
     cell_types = torch.tensor(cell_types, dtype=torch.long)
 
-    return cell_types, cells
+    return cell_types, cells, cc
 
 
 @typechecker

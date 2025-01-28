@@ -41,7 +41,7 @@ class TopoteinFeaturiser(ProteinFeaturiser):
 
         # cells
         if self.cell_types:
-            batch.cell_index, batch.cell_type = compute_cells(
+            batch.cell_index, batch.cell_type, batch.cell_complex = compute_cells(
                 batch, self.cell_types
             )
             batch.num_structure = len(self.cell_types)

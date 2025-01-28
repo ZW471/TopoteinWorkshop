@@ -19,7 +19,9 @@ sse_types:
   - E
   - C
 scalar_sse_features:
-  - secondary_structure_one_hot
-  - secondary_structure_length
+  - sse_one_hot
+  - sse_size
+  - node_features
+  - edge_features
 vector_sse_features: []
 

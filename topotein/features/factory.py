@@ -39,6 +39,9 @@ class TopoteinFeaturiser(ProteinFeaturiser):
 
         # cells
         if self.sse_types:
+            # sse: onehot type of sse
+            # sse_cell_index: cells that represents sses
+            # sse_cell_complex: the whole cell complex that contains structural inforamtion of this higher-order graph
             batch.sse, batch.sse_cell_index, batch.sse_cell_complex = compute_sses(
                 batch, self.sse_types
             )
@@ -46,13 +49,13 @@ class TopoteinFeaturiser(ProteinFeaturiser):
 
         # Scalar cell features
         if self.scalar_sse_features:
-            batch.cell_attr = compute_scalar_cell_features(
+            batch.sse_attr = compute_scalar_cell_features(
                 batch, self.scalar_sse_features
             )
 
         # Vector cell features
         if self.vector_sse_features:
-            batch = compute_vector_cell_features(
+            batch.sse_vector_attr = compute_vector_cell_features(
                 batch, self.vector_sse_features
             )
 

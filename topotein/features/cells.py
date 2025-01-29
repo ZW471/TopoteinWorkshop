@@ -61,7 +61,7 @@ def compute_sses(
     if is_using_simple_categories:
         sse_group_cc.complex['sse_type_num'] = len(sse_types)
 
-        cells = get_sse_cell_group(x.sse, sse_group_cc.complex['sse_type_num'], minimal_group_size=3)
+        cells = get_sse_cell_group(x.sse, x.batch, sse_group_cc.complex['sse_type_num'], minimal_group_size=3)
         for key, val in cells.items():
             sse_group_cc.add_cells_from(val, rank=2, sse_type=key)
     else:

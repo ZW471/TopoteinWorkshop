@@ -18,14 +18,16 @@ def sse_onehot(protein_batch: ProteinBatch) -> torch.Tensor:
     return torch.cat(protein_batch.protein_apply(annotate_protein_sses_pydssp))
 
 @typechecker
-def get_sse_cell_group(sse_batch: torch.Tensor, num_of_classes: int = 3, minimal_group_size: int = 3):
+def get_sse_cell_group(sse_batch: torch.Tensor, protein_batch: torch.Tensor, num_of_classes: int = 3, minimal_group_size: int = 3):
     """
     sse_batch: A (b, num_of_classes) tensor of one-hot rows.
+    protein_batch: A (b,) tensor indicating the protein each SSE belongs to.
     num_of_classes: Number of classes in the one-hot dimension (default=3).
+    minimal_group_size: Minimum size of the group to be included.
 
     Returns:
         A dictionary mapping each class 'c' -> list of consecutive index groups
-        where sse_batch[i] == one-hot vector for class 'c'.
+        where sse_batch[i] == one-hot vector for class 'c' and belongs to the same protein.
 
         For example, if num_of_classes=3,
         you get {
@@ -65,7 +67,7 @@ def get_sse_cell_group(sse_batch: torch.Tensor, num_of_classes: int = 3, minimal
 
         groups = []
         for s, e in zip(starts_list, ends_list):
-            if e - s <= least_consecutive_length:
+            if e - s < least_consecutive_length:  # Ensure group meets the minimum size
                 continue
             groups.append(tuple(range(s, e + 1)))
         return groups
@@ -82,9 +84,18 @@ def get_sse_cell_group(sse_batch: torch.Tensor, num_of_classes: int = 3, minimal
         # Build mask: True where row == that one-hot
         mask_c = (sse_batch == one_hot_c).all(dim=1)  # shape (b,)
 
-        # Find all consecutive runs of True in mask_c
-        groups_c = find_consecutive_true_indices(mask_c, least_consecutive_length=minimal_group_size)
-        all_groups[c] = groups_c
+        # Ensure SSEs belong to the same protein
+        protein_ids = protein_batch.unique()
+        group_list = []
+        for protein in protein_ids:
+            protein_mask = protein_batch == protein  # Mask for SSEs of this protein
+            combined_mask = mask_c & protein_mask  # Combine with the class mask
+
+            # Find all consecutive runs of True in the combined mask
+            groups_c = find_consecutive_true_indices(combined_mask, least_consecutive_length=minimal_group_size)
+            group_list.extend(groups_c)
+
+        all_groups[c] = group_list
 
     return all_groups
 

@@ -1,8 +1,12 @@
 from typing import List, Union
 
+import networkx as nx
+import torch
 from graphein.protein.tensor.data import ProteinBatch
+from toponetx import CellComplex
 from torch_geometric.data import Batch
 
+from proteinworkshop.features.edge_features import compute_scalar_edge_features, compute_vector_edge_features
 from proteinworkshop.features.factory import ProteinFeaturiser, StructureRepresentation
 from topotein.features.cell_features import compute_scalar_cell_features, compute_vector_cell_features
 from topotein.features.cells import compute_sses
@@ -24,10 +28,13 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         scalar_sse_features: List[ScalarCellFeature],
         vector_sse_features: List[VectorCellFeature],
     ):
-        super(TopoteinFeaturiser, self).__init__(representation, scalar_node_features, vector_node_features, edge_types, scalar_edge_features, vector_edge_features)
+        super(TopoteinFeaturiser, self).__init__(representation, scalar_node_features, vector_node_features, edge_types, [], [])
         self.sse_types = sse_types
         self.scalar_sse_features = scalar_sse_features
         self.vector_sse_features = vector_sse_features
+        # edge features should be calculated after attaching cells
+        self.scalar_edge_features_after_sse = scalar_edge_features
+        self.vector_edge_features_after_sse = vector_edge_features
 
     def forward(
         self, batch: Union[Batch, ProteinBatch]
@@ -46,6 +53,25 @@ class TopoteinFeaturiser(ProteinFeaturiser):
                 batch, self.sse_types
             )
             batch.num_sse_type = len(self.sse_types)
+
+        # recreate the edge indices
+        cc: CellComplex = batch.sse_cell_complex
+        edge_attr_dict = nx.get_edge_attributes(cc._G, "edge_type", default=batch.num_relation)
+        batch.edge_index = torch.tensor(list(edge_attr_dict.keys()), dtype=torch.long).T
+        batch.edge_type = torch.tensor(list(edge_attr_dict.values())).unsqueeze(0)
+        batch.num_relation += 1  # a new kind of edge is introduced by sse cells (connecting SSE start with end)
+
+        # Scalar edge features
+        if self.scalar_edge_features_after_sse:
+            batch.edge_attr = compute_scalar_edge_features(
+                batch, self.scalar_edge_features_after_sse
+            )
+
+        # Vector edge features
+        if self.vector_edge_features_after_sse:
+            batch = compute_vector_edge_features(
+                batch, self.vector_edge_features_after_sse
+            )
 
         # Scalar cell features
         if self.scalar_sse_features:

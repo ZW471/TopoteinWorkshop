@@ -68,7 +68,8 @@ def compute_sses(
         raise NotImplementedError(f"only 3-class scheme implemented")
 
     # cell index (the nodes contained in a cell)
-    sse_cells, sse_cell_types = zip(*sse_group_cc.get_cell_attributes('sse_type', rank=2).items())
+    sse_cells = tuple(sse_group_cc.get_cell_attributes('sse_type', rank=2).keys())
+    sse_cell_types = list(sse_group_cc.get_cell_attributes('sse_type', rank=2).values())
     _, sse_cell_types = unique(sse_cell_types, return_inverse=True)
     sse_cell_types = torch.tensor(sse_cell_types, dtype=torch.long)
     sse_cell_types = torch.nn.functional.one_hot(sse_cell_types, num_classes=len(sse_types))
@@ -77,7 +78,7 @@ def compute_sses(
 
 
 @typechecker
-def to_cell_complex(x: Union[Data, Batch, Protein, ProteinBatch], directed=True) -> tnx.CellComplex:
+def to_cell_complex(x: Union[Data, Batch, Protein, ProteinBatch], directed=False) -> tnx.CellComplex:
     cc = tnx.CellComplex()
     cc._add_nodes_from(list(range(x.num_nodes)))
     if directed:

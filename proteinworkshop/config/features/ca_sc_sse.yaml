@@ -13,6 +13,8 @@ edge_types:
   - knn_16
 scalar_edge_features:
   - edge_distance
+  - node_features
+  - sequence_distance
 vector_edge_features: []
 sse_types:
   - H

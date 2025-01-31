@@ -33,15 +33,15 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         self, batch: Union[Batch, ProteinBatch]
     ) -> Union[Batch, ProteinBatch]:
 
-        batch.sse = sse_onehot(batch)
+        batch.sse = sse_onehot(batch)  # this is node sse
 
         batch = super().forward(batch)
 
         # cells
         if self.sse_types:
-            # sse: onehot type of sse
+            # sse: onehot type of sse for groups
             # sse_cell_index: cells that represents sses
-            # sse_cell_complex: the whole cell complex that contains structural inforamtion of this higher-order graph
+            # sse_cell_complex: the whole cell complex that contains structural information of this higher-order graph
             batch.sse, batch.sse_cell_index, batch.sse_cell_complex = compute_sses(
                 batch, self.sse_types
             )

@@ -1,5 +1,5 @@
 import functools
-from typing import List, Literal, Optional, Tuple, Union
+from beartype.typing import List, Tuple, Union
 
 import torch
 from beartype import beartype as typechecker
@@ -77,10 +77,11 @@ def compute_sses(
 
 
 @typechecker
-def to_cell_complex(x: Union[Data, Batch, Protein, ProteinBatch]) -> tnx.CellComplex:
+def to_cell_complex(x: Union[Data, Batch, Protein, ProteinBatch], directed=True) -> tnx.CellComplex:
     cc = tnx.CellComplex()
     cc._add_nodes_from(list(range(x.num_nodes)))
-
+    if directed:
+        cc._G = cc._G.to_directed()
     for edge_relation in range(x.num_relation):
         cc.add_edges_from(
             ebunch_to_add=x.edge_index.T[(x.edge_type == edge_relation).squeeze()].detach().cpu().numpy(),

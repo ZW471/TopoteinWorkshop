@@ -34,6 +34,7 @@ class MyModel(nn.Module):
         '''
         super().__init__()
 
+
         # Embedding lookup for initial node features
         self.emb_in = torch.nn.LazyLinear(emb_dim)
 

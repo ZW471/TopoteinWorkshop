@@ -13,21 +13,53 @@ from ProteinWorkshop.proteinworkshop.types import EncoderOutput
 class TopoteinModelV0(nn.Module):
     def __init__(
             self,
-            num_layers: int = 5,
-            node_emb_dim: int = 32,
-            edge_emb_dim: int = 32,
-            cell_emb_dim: int = 32,
+            num_layers: int = 6,
+            node_input_dim: int = 60,
+            edge_input_dim: int = 122,
+            cell_input_dim: int = 64,
+            node_emb_dim: int = 128,
+            edge_emb_dim: int = 128,
+            cell_emb_dim: int = 128,
     ):
         super().__init__()
 
         self.num_layers = num_layers
+
+        self.node_input_dim = node_input_dim
+        self.edge_input_dim = edge_input_dim
+        self.cell_input_dim = cell_input_dim
+
         self.node_emb_dim = node_emb_dim
         self.edge_emb_dim = edge_emb_dim
         self.cell_emb_dim = cell_emb_dim
 
         self.sig = torch.nn.functional.sigmoid
-        self.bn = torch.nn.BatchNorm1d(3)
+        self.bns = [
+            torch.nn.BatchNorm1d(node_emb_dim),
+            torch.nn.BatchNorm1d(edge_emb_dim),
+            torch.nn.BatchNorm1d(cell_emb_dim),
+        ]
         self.relu = torch.nn.ReLU()
+
+        input_dims = [
+            self.node_input_dim,
+            self.edge_input_dim,
+            self.cell_input_dim,
+        ]
+
+        emb_dims = [
+            self.node_emb_dim,
+            self.edge_emb_dim,
+            self.cell_emb_dim,
+        ]
+
+        self.fc_input = [torch.nn.Linear(input_dim, emb_dim) for input_dim, emb_dim in zip(input_dims, emb_dims)]
+
+        self.fc_emb = [
+            [torch.nn.Linear(from_dim, to_dim) for to_dim in emb_dims] for from_dim in emb_dims
+        ]
+
+        self.pool = get_aggregation("mean")
 
     @property
     def required_batch_attributes(self) -> Set[str]:
@@ -51,25 +83,34 @@ class TopoteinModelV0(nn.Module):
         M0_1 = B[0]
         M0_0 = A[0]
 
-        X = [
-            batch.x,
-            batch.edge_attr,
-            batch.sse_attr
+        M = [
+            [M0_0, M0_1, M0_2],
+            [M1_0, M1_1, M1_2],
+            [M2_0, M2_1, M2_2],
         ]
 
-        h = [None, None, None]
+        X = [
+            self.fc_input[0](batch.x),
+            self.fc_input[1](batch.edge_attr),
+            self.fc_input[2](batch.sse_attr)
+        ]
+
+        H = [None, None, None]
 
         for _ in range(self.num_layers):
-            h[0] = torch.mm(M2_0.T, X[2]) + torch.mm(M1_0.T, X[1]) + torch.mm(M0_0.T, X[0])
-            h[1] = torch.mm(M2_1.T, X[2]) + torch.mm(M1_1.T, X[1]) + torch.mm(M0_1.T, X[0])
-            h[2] = torch.mm(M2_2.T, X[2]) + torch.mm(M1_2.T, X[1]) + torch.mm(M0_2.T, X[0])
+            for to_rank in range(3):
+                H[to_rank] = torch.stack([
+                    self.fc_emb[from_rank][to_rank](
+                        torch.mm(M[from_rank][to_rank].T, X[from_rank])
+                    )
+                    for from_rank in range(3)]).sum(0)
 
-        for i in range(3):
-            X[i] = self.relu(self.bn(h[i]))
+            for i in range(3):
+                X[i] = self.relu(self.bns[i](H[i] + X[i]))
 
         return EncoderOutput({
-            "node_embedding": h[0],
-            "edge_embedding": h[1],
-            "cell_embedding": h[2],
-            "graph_embedding": self.pool(h, batch.batch)
+            "node_embedding": X[0],
+            "edge_embedding": X[1],
+            "cell_embedding": X[2],
+            "graph_embedding": self.pool(X[0], batch.batch)
         })

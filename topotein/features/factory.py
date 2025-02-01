@@ -57,8 +57,9 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         # recreate the edge indices
         cc: CellComplex = batch.sse_cell_complex
         edge_attr_dict = nx.get_edge_attributes(cc._G, "edge_type", default=batch.num_relation)
-        batch.edge_index = torch.tensor(list(edge_attr_dict.keys()), dtype=torch.long).T
-        batch.edge_type = torch.tensor(list(edge_attr_dict.values())).unsqueeze(0)
+        device = batch.x.device
+        batch.edge_index = torch.tensor(list(edge_attr_dict.keys()), dtype=torch.long, device=device).T
+        batch.edge_type = torch.tensor(list(edge_attr_dict.values()), device=device).unsqueeze(0)
         batch.num_relation += 1  # a new kind of edge is introduced by sse cells (connecting SSE start with end)
 
         # Scalar edge features
@@ -88,4 +89,4 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         return batch
 
     def __repr__(self) -> str:
-        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features}, vector_edge_features={self.vector_edge_features}, cell_types={self.sse_types}, scalar_cell_features={self.scalar_sse_features}, vector_cell_features={self.vector_sse_features})"
+        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features_after_sse}, vector_edge_features={self.vector_edge_features_after_sse}, cell_types={self.sse_types}, scalar_cell_features={self.scalar_sse_features}, vector_cell_features={self.vector_sse_features})"

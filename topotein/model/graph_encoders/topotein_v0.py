@@ -66,6 +66,13 @@ class TopoteinModelV0(nn.Module):
         return {"x", "pos", "edge_index", "batch"}
 
     def forward(self, batch) -> EncoderOutput:
+
+        X = [
+            self.fc_input[0](batch.x),
+            self.fc_input[1](batch.edge_attr),
+            self.fc_input[2](batch.sse_attr)
+        ]
+
         cc:  CellComplex = batch.sse_cell_complex
         B = [from_sparse(cc.incidence_matrix(rank=r, signed=False)) for r in range(1, 3)]
         A = [from_sparse(cc.adjacency_matrix(rank=r, signed=False)) for r in range(2)]
@@ -89,11 +96,8 @@ class TopoteinModelV0(nn.Module):
             [M2_0, M2_1, M2_2],
         ]
 
-        X = [
-            self.fc_input[0](batch.x),
-            self.fc_input[1](batch.edge_attr),
-            self.fc_input[2](batch.sse_attr)
-        ]
+        device = X[0].device
+        M = [[element.to(device) for element in row] for row in M]
 
         H = [None, None, None]
 

@@ -25,6 +25,10 @@ class TopoteinModelV0(nn.Module):
         self.edge_emb_dim = edge_emb_dim
         self.cell_emb_dim = cell_emb_dim
 
+        self.sig = torch.nn.functional.sigmoid
+        self.bn = torch.nn.BatchNorm1d(3)
+        self.relu = torch.nn.ReLU()
+
     @property
     def required_batch_attributes(self) -> Set[str]:
         return {"x", "pos", "edge_index", "batch"}
@@ -56,11 +60,16 @@ class TopoteinModelV0(nn.Module):
         h = [None, None, None]
 
         for _ in range(self.num_layers):
-            X_updated[0] = torch.mm(M2_0.T, X[2]) + torch.mm(M1_0.T, X[1]) + torch.mm(M0_0.T, X[0])
-            X_updated[1] = torch.mm(M2_1.T, X[2]) + torch.mm(M1_1.T, X[1]) + torch.mm(M0_1.T, X[0])
-            X_updated[2] = torch.mm(M2_2.T, X[2]) + torch.mm(M1_2.T, X[1]) + torch.mm(M0_2.T, X[0])
+            h[0] = torch.mm(M2_0.T, X[2]) + torch.mm(M1_0.T, X[1]) + torch.mm(M0_0.T, X[0])
+            h[1] = torch.mm(M2_1.T, X[2]) + torch.mm(M1_1.T, X[1]) + torch.mm(M0_1.T, X[0])
+            h[2] = torch.mm(M2_2.T, X[2]) + torch.mm(M1_2.T, X[1]) + torch.mm(M0_2.T, X[0])
+
+        for i in range(3):
+            X[i] = self.relu(self.bn(h[i]))
 
         return EncoderOutput({
-            "node_embedding": h,
+            "node_embedding": h[0],
+            "edge_embedding": h[1],
+            "cell_embedding": h[2],
             "graph_embedding": self.pool(h, batch.batch)
         })

@@ -14,7 +14,7 @@ class TopoteinModelV0(nn.Module):
     def __init__(
             self,
             num_layers: int = 6,
-            node_input_dim: int = 60,
+            node_input_dim: int = 60,  # TODO: use model_cfg as used in the GCPNet model
             edge_input_dim: int = 122,
             cell_input_dim: int = 64,
             node_emb_dim: int = 128,

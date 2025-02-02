@@ -21,9 +21,9 @@ class TopoteinModelV0(nn.Module):
             node_input_dim: int = 60,  # TODO: use model_cfg as used in the GCPNet model
             edge_input_dim: int = 122,
             cell_input_dim: int = 64,
-            node_emb_dim: int = 128,
-            edge_emb_dim: int = 64,
-            cell_emb_dim: int = 128,
+            node_emb_dim: int = 512,
+            edge_emb_dim: int = 512,
+            cell_emb_dim: int = 512,
     ):
         super().__init__()
 
@@ -37,6 +37,8 @@ class TopoteinModelV0(nn.Module):
         self.edge_emb_dim = edge_emb_dim
         self.cell_emb_dim = cell_emb_dim
 
+        self.dropout = nn.Dropout(0.1)
+
         self.sig = torch.nn.functional.sigmoid
         self.bns = [
             torch.nn.BatchNorm1d(node_emb_dim),
@@ -44,6 +46,9 @@ class TopoteinModelV0(nn.Module):
             torch.nn.BatchNorm1d(cell_emb_dim),
         ]
         self.relu = torch.nn.ReLU()
+        self.leaky_relu = torch.nn.LeakyReLU()
+        self.tanh = torch.nn.Tanh()
+        self.silu = torch.nn.SiLU()
 
         input_dims = [
             self.node_input_dim,
@@ -82,43 +87,22 @@ class TopoteinModelV0(nn.Module):
         A = [from_sparse(cc.adjacency_matrix(rank=r, signed=False)) for r in range(2)]
         coA_1 = from_sparse(cc.coadjacency_matrix(rank=1, signed=False))
 
-        # M2_0 = torch.mm(B[1].T, B[0].T) / 2
-        # M2_1 = torch.mm(M2_0, B[0])
-        # M2_2 = torch.mm(torch.mm(M2_0, A[0]), M2_0.T)
-        #
-        # M1_2 = B[1]
-        # M1_1 = A[1] + coA_1
-        # M1_0 = B[0].T
-        #
-        # M0_2 = M2_0.T
-        # M0_1 = B[0]
-        # M0_0 = A[0]
-
-        M2_0 = torch.zeros(
-            (B[1].shape[-1], B[0].shape[0]),
-            dtype=torch.float32,
-            device=X[0].device,)
-        M2_1 = B[1].T
-        M2_2 = torch.zeros(
-            (B[1].shape[-1], B[1].shape[-1]),
-            dtype=torch.float32,
-            device=X[0].device,)
+        M2_0 = torch.mm(B[1].T, B[0].T) / 2
+        M2_1 = torch.mm(M2_0, B[0])
+        M2_2 = torch.mm(torch.mm(M2_0, A[0]), M2_0.T)
 
         M1_2 = B[1]
-        M1_1 = A[1]
+        M1_1 = A[1] + coA_1
         M1_0 = B[0].T
 
         M0_2 = M2_0.T
         M0_1 = B[0]
-        M0_0 = torch.zeros(
-            (A[0].shape[0], A[0].shape[0]),
-            dtype=torch.float32,
-            device=X[0].device,)
+        M0_0 = A[0]
 
         M = [
-            [M0_0, M0_1, M0_2],
-            [M1_0, M1_1, M1_2],
-            [M2_0, M2_1, M2_2],
+            [M0_0, M0_1 * 0, M0_2 * 0],
+            [M1_0, M1_1 * 0, M1_2 * 0],
+            [M2_0 * 0, M2_1 * 0, M2_2 * 0],
         ]
 
         device = X[0].device
@@ -135,7 +119,8 @@ class TopoteinModelV0(nn.Module):
                     for from_rank in range(3)]).sum(0)
 
             for i in range(3):
-                X[i] = self.relu(self.bns[i](H[i] + X[i]))
+                X[i] = self.sig(self.bns[i](H[i] + X[i]))
+                X[i] = self.dropout(X[i])
 
         return EncoderOutput({
             "node_embedding": X[0],
@@ -143,6 +128,7 @@ class TopoteinModelV0(nn.Module):
             "cell_embedding": X[2],
             "graph_embedding": self.pool(X[0], batch.batch)
         })
+
 
 @hydra.main(
     version_base="1.3",

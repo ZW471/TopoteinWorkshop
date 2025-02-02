@@ -1,4 +1,4 @@
-_target_: topotein.model.test_model.MyModel
+_target_: topotein.models.test_model.MyModel
 num_layers: 6
 emb_dim: 512
 activation: relu

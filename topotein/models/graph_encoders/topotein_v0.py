@@ -1,13 +1,17 @@
 from typing import Set
 
 import torch
+from omegaconf import DictConfig
 from topomodelx.utils.sparse import from_sparse
 from toponetx import CellComplex
 from torch import nn
 
-from ProteinWorkshop.proteinworkshop.models.graph_encoders.layers.egnn import EGNNLayer
-from ProteinWorkshop.proteinworkshop.models.utils import get_aggregation
-from ProteinWorkshop.proteinworkshop.types import EncoderOutput
+from proteinworkshop.models.utils import get_aggregation
+from proteinworkshop.types import EncoderOutput
+
+import hydra
+
+from proteinworkshop import constants
 
 
 class TopoteinModelV0(nn.Module):
@@ -18,7 +22,7 @@ class TopoteinModelV0(nn.Module):
             edge_input_dim: int = 122,
             cell_input_dim: int = 64,
             node_emb_dim: int = 128,
-            edge_emb_dim: int = 128,
+            edge_emb_dim: int = 64,
             cell_emb_dim: int = 128,
     ):
         super().__init__()
@@ -78,17 +82,38 @@ class TopoteinModelV0(nn.Module):
         A = [from_sparse(cc.adjacency_matrix(rank=r, signed=False)) for r in range(2)]
         coA_1 = from_sparse(cc.coadjacency_matrix(rank=1, signed=False))
 
-        M2_0 = torch.mm(B[1].T, B[0].T) / 2
-        M2_1 = torch.mm(M2_0, B[0])
-        M2_2 = torch.mm(torch.mm(M2_0, A[0]), M2_0.T)
+        # M2_0 = torch.mm(B[1].T, B[0].T) / 2
+        # M2_1 = torch.mm(M2_0, B[0])
+        # M2_2 = torch.mm(torch.mm(M2_0, A[0]), M2_0.T)
+        #
+        # M1_2 = B[1]
+        # M1_1 = A[1] + coA_1
+        # M1_0 = B[0].T
+        #
+        # M0_2 = M2_0.T
+        # M0_1 = B[0]
+        # M0_0 = A[0]
+
+        M2_0 = torch.zeros(
+            (B[1].shape[-1], B[0].shape[0]),
+            dtype=torch.float32,
+            device=X[0].device,)
+        M2_1 = B[1].T
+        M2_2 = torch.zeros(
+            (B[1].shape[-1], B[1].shape[-1]),
+            dtype=torch.float32,
+            device=X[0].device,)
 
         M1_2 = B[1]
-        M1_1 = A[1] + coA_1
+        M1_1 = A[1]
         M1_0 = B[0].T
 
         M0_2 = M2_0.T
         M0_1 = B[0]
-        M0_0 = A[0]
+        M0_0 = torch.zeros(
+            (A[0].shape[0], A[0].shape[0]),
+            dtype=torch.float32,
+            device=X[0].device,)
 
         M = [
             [M0_0, M0_1, M0_2],
@@ -118,3 +143,18 @@ class TopoteinModelV0(nn.Module):
             "cell_embedding": X[2],
             "graph_embedding": self.pool(X[0], batch.batch)
         })
+
+@hydra.main(
+    version_base="1.3",
+    config_path=str(constants.SRC_PATH / "config" / "encoder"),
+    config_name="topotein_v0.yaml",
+)
+def _main(cfg: DictConfig):
+    print(cfg)
+    enc = hydra.utils.instantiate(cfg)
+    print(enc)
+
+
+if __name__ == "__main__":
+    _main()
+

@@ -1,0 +1,2 @@
+_target_: topotein.models.graph_encoders.topotein_v0.TopoteinModelV0
+num_layers: 1

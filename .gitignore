@@ -143,7 +143,6 @@ proteinworkshop/data/*
 !proteinworkshop/data/.gitkeep
 
 logs/
-ProteinWorkshop/
 wandb/
 .DS_Store
 .env

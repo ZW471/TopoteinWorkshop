@@ -25,6 +25,8 @@ class ETNNModel(torch.nn.Module):
         H1 = batch.edge_attr
         H2 = batch.sse_attr
 
+        device = X.device
+
         # ccc is taking way more time when compared to cell complex
         # ccc: CombinatorialComplex = batch.sse_cell_complex.to_combinatorial_complex()
         #
@@ -33,10 +35,10 @@ class ETNNModel(torch.nn.Module):
         # N0_0_via_1 = from_sparse(ccc.adjacency_matrix(rank=0, via_rank=1))
         # N0_0_via_2 = from_sparse(ccc.adjacency_matrix(rank=0, via_rank=2))
         cc: CellComplex = batch.sse_cell_complex
-        Bt = [from_sparse(cc.incidence_matrix(rank=i, signed=False).T) for i in range(1,3)]
+        Bt = [from_sparse(cc.incidence_matrix(rank=i, signed=False).T).to(device) for i in range(1,3)]
         N2_0 = (torch.sparse.mm(Bt[1], Bt[0]) / 2).coalesce()
         N1_0 = Bt[0].coalesce()
-        N0_0_via_1 = from_sparse(cc.adjacency_matrix(rank=0, signed=False))
+        N0_0_via_1 = from_sparse(cc.adjacency_matrix(rank=0, signed=False)).to(device)
         N0_0_via_2 = torch.sparse.mm(N2_0.T, N2_0).coalesce()
 
 

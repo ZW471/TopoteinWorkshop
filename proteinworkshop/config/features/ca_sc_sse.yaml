@@ -7,13 +7,13 @@ scalar_node_features:
   - kappa
   - dihedrals
   - sidechain_torsions
-  - secondary_structure_one_hot
+#  - secondary_structure_one_hot
 vector_node_features: []
 edge_types:
   - knn_16
 scalar_edge_features:
   - edge_distance
-  - node_features
+#  - node_features
   - sequence_distance
 vector_edge_features: []
 sse_types:
@@ -23,6 +23,6 @@ sse_types:
 scalar_sse_features:
   - sse_one_hot
   - sse_size
-  - node_features
+#  - node_features
 vector_sse_features: []
 

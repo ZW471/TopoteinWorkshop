@@ -51,7 +51,7 @@ def compute_scalar_cell_features(
         else:
             raise ValueError(f"Unknown cell feature {feature}")
     feats = [feat.unsqueeze(1) if feat.ndim == 1 else feat for feat in feats]
-    return torch.cat(feats, dim=1)
+    return torch.cat(feats, dim=1).float()
 
 
 @jaxtyped(typechecker=typechecker)

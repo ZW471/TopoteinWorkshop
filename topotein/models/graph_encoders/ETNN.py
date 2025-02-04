@@ -13,9 +13,9 @@ from torch_scatter import scatter_add
 from topotein.models.graph_encoders.layers.ETNN import ETNNLayer
 
 
-class ETNN(torch.nn.Module):
+class ETNNModel(torch.nn.Module):
     def __init__(self, in_dim0=57, in_dim1=2, in_dim2=4, emb_dim=512, dropout=0.1, num_layers=6, activation="relu"):
-        super(ETNN, self).__init__()
+        super(ETNNModel, self).__init__()
         self.layers = torch.nn.ModuleList([ETNNLayer(emb_dim, in_dim1, in_dim2, dropout, activation) for _ in range(num_layers)])
         self.emb_0 = torch.nn.Linear(in_dim0, emb_dim)
 
@@ -41,7 +41,9 @@ class ETNN(torch.nn.Module):
 
 
         for layer in self.layers:
-            H0, X = layer(X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
+            H0_update, X_update = layer(X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
+            H0 = H0 + H0_update
+            X = X + X_update
         return {
             "node_embedding": H0,
             # "edge_embedding": torch.cat([H1, H1], dim=-1),

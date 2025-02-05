@@ -30,9 +30,9 @@ def create_sparse_tensor(letter: str, rank: int, cc: CellComplex, signed=False, 
     Different letters produce different hard-coded nonzero patterns.
     """
     if letter == "Ad":
-        matrix = cc.adjacency_matrix(rank=rank, signed=signed)
-    elif letter == "Au" or letter == "A":
         matrix = cc.coadjacency_matrix(rank=rank, signed=signed)
+    elif letter == "Au" or letter == "A":
+        matrix = cc.adjacency_matrix(rank=rank, signed=signed)
     elif letter == "Ld":
         matrix = cc.down_laplacian_matrix(rank=rank, signed=signed)
     elif letter == "Lu" or letter == "L":
@@ -86,9 +86,9 @@ class MatrixTransformer(Transformer):
             return children[0]
         return children
 
-    def __init__(self, batch, signed=False, use_cache=True, device="cpu"):
+    def __init__(self, batch_complex, signed=False, use_cache=True, device="cpu"):
         super().__init__()
-        self.batch = batch
+        self.batch_complex = batch_complex
         self.signed = signed
         self.use_cache = use_cache
         self.device = device
@@ -105,7 +105,7 @@ class MatrixTransformer(Transformer):
         if self.use_cache and var_name in self._cache:
             return self._cache[var_name]
         letter, rank = parse_variable(var_name)
-        matrix = create_sparse_tensor(letter, rank, self.batch, signed=self.signed, device=self.device)
+        matrix = create_sparse_tensor(letter, rank, self.batch_complex, signed=self.signed, device=self.device)
         if self.use_cache:
             self._cache[var_name] = matrix
         return matrix
@@ -141,31 +141,46 @@ class MatrixTransformer(Transformer):
         else:
             raise ValueError(f"Unknown function: {func_name}")
 
+
+class NeighborhoodCaculator():
+    def __init__(self, batch, signed=False, use_cache=True):
+        self.transformer = MatrixTransformer(batch.sse_cell_complex, signed=signed, use_cache=use_cache, device=batch.x.device)
+        self.parser = Lark(grammar, parser="lalr")
+
+    def eval(self, expression):
+        tree = self.parser.parse(expression)
+        return self.transformer.transform(tree).coalesce()
+
+    def equation_to_expression(self, equation):
+        variable, expression = equation.split("=")
+        variable = variable.strip()
+        expression = expression.strip()
+        return variable, expression
+
+    def calc_equations(self, equations):
+        results = {}
+        for equation in equations:
+            variable, expression = self.equation_to_expression(equation)
+            try:
+                results[variable] = self.eval(expression)
+            except Exception as e:
+                print(f"Error processing expression '{expression}': {e}")
+        return results
+
 # --- Parse and transform the expression ---
 if __name__ == "__main__":
     batch = torch.load("/Users/dricpro/PycharmProjects/Topotein/test/data/sample_batch/sample_featurised_batch_edge_processed_simple.pt", weights_only=False)
 
-    parser = Lark(grammar, parser="lalr")
-    mt = MatrixTransformer(batch.sse_cell_complex, signed=False, use_cache=True)
-    expressions = [
-        "B2.T @ B1.T / 2",
-        "A0 + Ad0",
-        "(H1 + Au1) @ B1.T",
-        "B2.T",
-        "B2.T @ B1.T / 2 @ L0 @ B1 @ B2 / 2"
+    calculator = NeighborhoodCaculator(batch)
+    equations = [
+        "N2_0 = B2.T @ B1.T / 2",
+        "N0_0 = A0 + Ad0",
+        "N1_0 = (H1 + Au1) @ B1.T",
+        "N2_1 = B2.T",
+        "N2_2 = B2.T @ B1.T / 2 @ L0 @ B1 @ B2 / 2"
     ]
     import time
     tik = time.time()
-    for expression in expressions:
-        try:
-            # Parse the expression into a parse tree.
-            tree = parser.parse(expression)
-            # Now fully transform the tree.
-            result = mt.transform(tree)
-            print("Expression:", expression)
-            print("Result tensor:")
-            print(result)
-        except Exception as e:
-            print(f"Error processing expression '{expression}': {e}")
-
+    results = calculator.calc_equations(equations)
     print(f"Time taken: {time.time() - tik} seconds")
+    print(results)

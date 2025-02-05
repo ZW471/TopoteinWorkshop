@@ -304,6 +304,10 @@ def validate_gcpnet_config(cfg: DictConfig):
     for feature in cfg.encoder.features:
         cfg.features[feature] = cfg.encoder.features[feature]
 
+def validate_topotein_config(cfg: DictConfig):
+    for feature in cfg.encoder.features:
+        cfg.features[feature] = cfg.encoder.features[feature]
+
 
 def validate_multiprocessing(cfg: DictConfig) -> DictConfig:
     # Make sure num_workers isn't too high.
@@ -359,6 +363,10 @@ def validate_config(cfg: DictConfig) -> DictConfig:
         == "proteinworkshop.models.graph_encoders.gcpnet.GCPNetModel"
     ):
         validate_gcpnet_config(cfg)
+    elif (
+        "topotein.models.graph_encoders" in cfg.encoder._target_
+    ):
+        validate_topotein_config(cfg)
 
     # Validate task
     if cfg.task.task == "inverse_folding":

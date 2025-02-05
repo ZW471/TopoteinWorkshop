@@ -102,8 +102,11 @@ def get_input_dim(
         "sequence_distance": 1,
         # TODO fill-in remaining scalar edge features
         ### vector edge features ###
-        "edge_vectors": 1
+        "edge_vectors": 1,
         # TODO fill-in remaining vector edge features
+        ### scalar cell features ###
+        "sse_one_hot": 3,
+        "sse_size": 1
     }
 
     sizes = [

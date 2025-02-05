@@ -14,10 +14,22 @@ from topotein.models.graph_encoders.layers.ETNN import ETNNLayer
 
 
 class ETNNModel(torch.nn.Module):
-    def __init__(self, in_dim0=57, in_dim1=2, in_dim2=4, emb_dim=512, dropout=0.1, num_layers=6, activation="relu"):
-        super(ETNNModel, self).__init__()
-        self.layers = torch.nn.ModuleList([ETNNLayer(emb_dim, in_dim1, in_dim2, dropout, activation) for _ in range(num_layers)])
-        self.emb_0 = torch.nn.Linear(in_dim0, emb_dim)
+    def __init__(self, in_dim0=57, in_dim1=2, in_dim2=4, emb_dim=512, dropout=0.1, num_layers=6, activation="relu",
+                 # Note: Each of the arguments above are stored in the corresponding `kwargs` configs below
+                 # They are simply listed here to highlight key available arguments
+                 **kwargs):
+        super().__init__()
+
+        assert all(
+            [cfg in kwargs for cfg in ["model_cfg"]]
+        ), "All required ETNN `DictConfig`s must be provided."
+        module_cfg = kwargs["model_cfg"]
+        for k, v in module_cfg.items():
+            setattr(self, k, v)
+
+
+        self.layers = torch.nn.ModuleList([ETNNLayer(self.emb_dim, self.in_dim1, self.in_dim2, self.dropout, self.activation) for _ in range(self.num_layers)])
+        self.emb_0 = torch.nn.Linear(self.in_dim0, self.emb_dim)
 
     def forward(self, batch):
         X = batch.pos
@@ -34,12 +46,19 @@ class ETNNModel(torch.nn.Module):
         # N1_0 = from_sparse(ccc.incidence_matrix(rank=0, to_rank=1).T)
         # N0_0_via_1 = from_sparse(ccc.adjacency_matrix(rank=0, via_rank=1))
         # N0_0_via_2 = from_sparse(ccc.adjacency_matrix(rank=0, via_rank=2))
-        cc: CellComplex = batch.sse_cell_complex
-        Bt = [from_sparse(cc.incidence_matrix(rank=i, signed=False).T).to(device) for i in range(1,3)]
-        N2_0 = (torch.sparse.mm(Bt[1], Bt[0]) / 2).coalesce()
-        N1_0 = Bt[0].coalesce()
-        N0_0_via_1 = from_sparse(cc.adjacency_matrix(rank=0, signed=False)).to(device)
-        N0_0_via_2 = torch.sparse.mm(N2_0.T, N2_0).coalesce()
+        # cc: CellComplex = batch.sse_cell_complex
+        # Bt = [from_sparse(cc.incidence_matrix(rank=i, signed=False).T).to(device) for i in range(1,3)]
+        # N2_0 = (torch.sparse.mm(Bt[1], Bt[0]) / 2).coalesce()
+        # N1_0 = Bt[0].coalesce()
+        # N0_0_via_1 = from_sparse(cc.adjacency_matrix(rank=0, signed=False)).to(device)
+        # N0_0_via_2 = torch.sparse.mm(N2_0.T, N2_0).coalesce()
+
+        N2_0 = batch.N2_0
+        N1_0 = batch.N1_0
+        N0_0_via_1 = batch.N0_0_via_1
+        N0_0_via_2 = batch.N0_0_via_2
+
+
 
 
         for layer in self.layers:

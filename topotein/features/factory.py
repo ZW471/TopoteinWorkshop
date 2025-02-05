@@ -90,11 +90,13 @@ class TopoteinFeaturiser(ProteinFeaturiser):
             )
 
         if self.neighborhoods:
-            batch.neighborhoods = compute_neighborhoods(
+            neighborhoods = compute_neighborhoods(
                 batch, self.neighborhoods
             )
+            for name, value in neighborhoods.items():
+                batch[name] = value
 
         return batch
 
     def __repr__(self) -> str:
-        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features_after_sse}, vector_edge_features={self.vector_edge_features_after_sse}, cell_types={self.sse_types}, scalar_cell_features={self.scalar_sse_features}, vector_cell_features={self.vector_sse_features})"
+        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features_after_sse}, vector_edge_features={self.vector_edge_features_after_sse}, cell_types={self.sse_types}, scalar_cell_features={self.scalar_sse_features}, vector_cell_features={self.vector_sse_features}, neighborhoods={self.neighborhoods})"

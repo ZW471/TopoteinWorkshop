@@ -21,7 +21,7 @@ def parse_variable(var_name: str):
         rank = int(var_name[1:])
     return letter, rank
 
-def create_sparse_tensor(letter: str, rank: int, cc: CellComplex, signed=False) -> torch.Tensor:
+def create_sparse_tensor(letter: str, rank: int, cc: CellComplex, signed=False, device="cpu") -> torch.Tensor:
     """
     Create a torch sparse tensor based on the letter and rank.
       - Rank 0: a tensor of shape (1,)
@@ -43,7 +43,7 @@ def create_sparse_tensor(letter: str, rank: int, cc: CellComplex, signed=False) 
         matrix = cc.incidence_matrix(rank=rank, signed=signed)
     else:
         raise ValueError(f"Unknown letter: {letter}")
-    return from_sparse(matrix)
+    return from_sparse(matrix).to(device)
 
 # --- Grammar definition ---
 #
@@ -86,10 +86,13 @@ class MatrixTransformer(Transformer):
             return children[0]
         return children
 
-    def __init__(self, batch, signed=False):
+    def __init__(self, batch, signed=False, use_cache=True, device="cpu"):
         super().__init__()
         self.batch = batch
         self.signed = signed
+        self.use_cache = use_cache
+        self.device = device
+        self._cache = {}
 
     def start(self, expr):
         return expr
@@ -99,8 +102,13 @@ class MatrixTransformer(Transformer):
 
     def var(self, token):
         var_name = str(token)
+        if self.use_cache and var_name in self._cache:
+            return self._cache[var_name]
         letter, rank = parse_variable(var_name)
-        return create_sparse_tensor(letter, rank, self.batch)
+        matrix = create_sparse_tensor(letter, rank, self.batch, signed=self.signed, device=self.device)
+        if self.use_cache:
+            self._cache[var_name] = matrix
+        return matrix
 
     def number(self, token):
         return float(token)
@@ -129,7 +137,7 @@ class MatrixTransformer(Transformer):
     def func_call(self, func_name, expr_value):
         func_name = str(func_name)
         if func_name == "inv":
-            return torch.inverse(ensure_dense(expr_value))
+            return torch.inverse(expr_value)
         else:
             raise ValueError(f"Unknown function: {func_name}")
 
@@ -138,12 +146,16 @@ if __name__ == "__main__":
     batch = torch.load("/Users/dricpro/PycharmProjects/Topotein/test/data/sample_batch/sample_featurised_batch_edge_processed_simple.pt", weights_only=False)
 
     parser = Lark(grammar, parser="lalr")
-    mt = MatrixTransformer(batch.sse_cell_complex, signed=False)
+    mt = MatrixTransformer(batch.sse_cell_complex, signed=False, use_cache=True)
     expressions = [
         "B2.T @ B1.T / 2",
         "A0 + Ad0",
-        "(H1 + Au1) @ B1.T"
+        "(H1 + Au1) @ B1.T",
+        "B2.T",
+        "B2.T @ B1.T / 2 @ L0 @ B1 @ B2 / 2"
     ]
+    import time
+    tik = time.time()
     for expression in expressions:
         try:
             # Parse the expression into a parse tree.
@@ -155,3 +167,5 @@ if __name__ == "__main__":
             print(result)
         except Exception as e:
             print(f"Error processing expression '{expression}': {e}")
+
+    print(f"Time taken: {time.time() - tik} seconds")

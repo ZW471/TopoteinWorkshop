@@ -1,9 +1,10 @@
 import torch
 from topomodelx import MessagePassing, Aggregation
 from torch.nn import Sequential, Linear, Dropout
-from torch_scatter import scatter_min, scatter_add
+from torch_scatter import scatter_min, scatter_add, scatter_mean
 
 from proteinworkshop.models.utils import get_activations
+from topotein.models.aggregation import InterNeighborhoodAggregator, IntraNeighborhoodAggregator
 
 
 def cast_dense_by_sparse_link(
@@ -121,7 +122,7 @@ def intra_neighborhood_agg(M: torch.Tensor, msgs: torch.Tensor) -> torch.Tensor:
              graph, with shape `(number of nodes in M, ...)`.
     """
     M = M.coalesce()
-    return scatter_add(msgs, M.indices()[0], dim=0, dim_size=M.size(0))
+    return scatter_mean(msgs, M.indices()[0], dim=0, dim_size=M.size(0))
 
 
 class ETNNLayer(MessagePassing):
@@ -170,16 +171,25 @@ class ETNNLayer(MessagePassing):
             self.activation,
             Dropout(dropout),
         )
-        self.agg_intra = intra_neighborhood_agg
-        self.agg_inter = Aggregation("sum", "sigmoid")
+        self.agg_intra = IntraNeighborhoodAggregator(aggr_func="sum")
+        self.agg_inter = InterNeighborhoodAggregator(aggr_func="sum")
         self.batch_norm = torch.nn.BatchNorm1d(emb_dim)
 
     def forward(self, X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0):
-        msg_sse, msg_edge, msg_pos = self.message(X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
+        # step 1 - message passing
+        msg_sse, msg_edge = self.message(X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
+
+        # step 2 - intra-neighborhood aggregation
+        msg_pos_via_1 = self.weighted_distance_difference(X, N0_0_via_1, N1_0, self.phi_x(msg_edge))
+        msg_pos_via_2 = self.weighted_distance_difference(X, N0_0_via_2, N2_0, self.phi_x(msg_sse))
+
         msg_sse = self.agg_intra(N0_0_via_2, msg_sse)
         msg_edge = self.agg_intra(N0_0_via_1, msg_edge)
+        # step 3 - inter-neighborhood aggregation
         h_update = self.agg_inter([msg_sse, msg_edge])
-        x_update = msg_pos
+        x_update = self.agg_inter([msg_pos_via_1, msg_pos_via_2])
+
+        # step 4 - update
         H0 = self.phi_update(torch.cat([H0, h_update], dim=-1))
         X = X + x_update
         return H0, X
@@ -210,11 +220,7 @@ class ETNNLayer(MessagePassing):
             cast_dense_by_sparse_link(compute_sparse_messages(N1_0.T, H1), N1_0, N0_0_via_1)
         ], dim=-1))
 
-        msg_pos_via_1 = self.weighted_distance_difference(X, N0_0_via_1, N1_0, self.phi_x(msg_edge))
-        msg_pos_via_2 = self.weighted_distance_difference(X, N0_0_via_2, N2_0, self.phi_x(msg_sse))
-        msg_pos = msg_pos_via_1 + msg_pos_via_2
-
-        return msg_sse, msg_edge, msg_pos
+        return msg_sse, msg_edge
 
     def weighted_distance_difference(self, X, A, B, weights):
         # A = remove_diagonal_entries(A).coalesce()

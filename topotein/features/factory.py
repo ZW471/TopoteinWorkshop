@@ -10,6 +10,7 @@ from proteinworkshop.features.edge_features import compute_scalar_edge_features,
 from proteinworkshop.features.factory import ProteinFeaturiser, StructureRepresentation
 from topotein.features.cell_features import compute_scalar_cell_features, compute_vector_cell_features
 from topotein.features.cells import compute_sses
+from topotein.features.neighborhoods import compute_neighborhoods
 from topotein.features.sse import sse_onehot
 from proteinworkshop.types import ScalarNodeFeature, VectorNodeFeature, ScalarEdgeFeature, VectorEdgeFeature, \
     ScalarCellFeature, VectorCellFeature
@@ -27,6 +28,7 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         sse_types: List[str],
         scalar_sse_features: List[ScalarCellFeature],
         vector_sse_features: List[VectorCellFeature],
+        neighborhoods: List[str]
     ):
         super(TopoteinFeaturiser, self).__init__(representation, scalar_node_features, vector_node_features, edge_types, [], [])
         self.sse_types = sse_types
@@ -35,6 +37,7 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         # edge features should be calculated after attaching cells
         self.scalar_edge_features_after_sse = scalar_edge_features
         self.vector_edge_features_after_sse = vector_edge_features
+        self.neighborhoods = neighborhoods
 
     def forward(
         self, batch: Union[Batch, ProteinBatch]
@@ -84,6 +87,11 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         if self.vector_sse_features:
             batch.sse_vector_attr = compute_vector_cell_features(
                 batch, self.vector_sse_features
+            )
+
+        if self.neighborhoods:
+            batch.neighborhoods = compute_neighborhoods(
+                batch, self.neighborhoods
             )
 
         return batch

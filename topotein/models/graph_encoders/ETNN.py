@@ -55,7 +55,7 @@ class ETNNModel(torch.nn.Module):
 
     @property
     def required_batch_attributes(self) -> Set[str]:
-        return {"x", "pos", "edge_index", "batch"}
+        return {"x", "pos", "edge_attr", "batch", "N2_0", "N1_0", "N0_0_via_1", "N0_0_via_2", "sse_attr"}
 
 
 @hydra.main(

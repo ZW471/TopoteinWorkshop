@@ -9,7 +9,7 @@ features:
 
 num_layers: 6 # Number of layers in the model
 emb_dim: 512
-activation: relu # Activation function to use in each GCP layer
+activation: silu # Activation function to use in each GCP layer
 pool: sum # Global pooling method to be used
 
 model_cfg:
@@ -20,3 +20,5 @@ model_cfg:
   activation: ${..activation}
   num_layers: ${..num_layers}
   dropout: 0.1
+
+layer_cfg:

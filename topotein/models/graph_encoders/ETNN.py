@@ -10,11 +10,12 @@ from topomodelx.base.aggregation import Aggregation
 from topomodelx.utils.sparse import from_sparse
 from torch_scatter import scatter_add
 
+from proteinworkshop.models.utils import get_aggregation
 from topotein.models.graph_encoders.layers.ETNN import ETNNLayer
 
 
 class ETNNModel(torch.nn.Module):
-    def __init__(self, in_dim0=57, in_dim1=2, in_dim2=4, emb_dim=512, dropout=0.1, num_layers=6, activation="relu",
+    def __init__(self, in_dim0=57, in_dim1=2, in_dim2=4, emb_dim=512, dropout=0.1, num_layers=6, activation="relu",pool="mean",
                  # Note: Each of the arguments above are stored in the corresponding `kwargs` configs below
                  # They are simply listed here to highlight key available arguments
                  # They will only be used when debug=True
@@ -31,6 +32,7 @@ class ETNNModel(torch.nn.Module):
             self.dropout = dropout
             self.num_layers = num_layers
             self.activation = activation
+            self.pool = pool
         else:
             assert all(
                 [cfg in kwargs for cfg in ["model_cfg", "layer_cfg"]]
@@ -43,6 +45,7 @@ class ETNNModel(torch.nn.Module):
 
         self.layers = torch.nn.ModuleList([ETNNLayer(self.emb_dim, self.in_dim1, self.in_dim2, self.dropout, self.activation) for _ in range(self.num_layers)])
         self.emb_0 = torch.nn.Linear(self.in_dim0, self.emb_dim)
+        self.pool = get_aggregation(self.pool)
 
     def forward(self, batch):
         X = batch.pos
@@ -83,6 +86,9 @@ class ETNNModel(torch.nn.Module):
             "node_embedding": H0,
             # "edge_embedding": torch.cat([H1, H1], dim=-1),
             # "sse_embedding": H2,
+            "graph_embedding": self.pool(
+                H0, batch.batch
+            ),  # (n, d) -> (batch_size, d)
             "pos": X
         }
 

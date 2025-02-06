@@ -19,6 +19,7 @@ model_cfg:
   emb_dim: ${..emb_dim}
   activation: ${..activation}
   num_layers: ${..num_layers}
+  pool: ${..pool}
   dropout: 0.1
 
 layer_cfg:

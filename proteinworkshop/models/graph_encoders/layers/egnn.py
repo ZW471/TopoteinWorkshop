@@ -108,3 +108,31 @@ class EGNNLayer(MessagePassing):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(emb_dim={self.emb_dim}, aggr={self.aggr})"
+
+#%%
+
+if __name__ == "__main__":
+
+    #%%
+    batch = torch.load("/Users/dricpro/PycharmProjects/Topotein/test/data/sample_batch/sample_featurised_batch_edge_processed_simple.pt", weights_only=False)
+    print(batch)
+    layer = EGNNLayer(57)
+    h = batch.x
+    pos = batch.pos
+    edge_index = batch.edge_index
+    out = layer(h, pos, edge_index)
+    Q = torch.randn(3, 3)
+    t = torch.rand(3)
+
+    out2 = layer(h, pos @ Q + t, edge_index)
+
+    print((out[1] + pos) @ Q + t)
+    print(out2[1] + pos @ Q + t)
+
+    assert torch.allclose((out[1] + pos) @ Q + t, out2[1] + pos @ Q + t, atol=10, rtol=.1)
+    assert torch.allclose((out[1] + pos) @ Q + t, out2[1] + pos @ Q + t, atol=1, rtol=.1)
+    # assert torch.allclose((out[1] + pos) @ Q + t, out2[1] + pos @ Q + t, atol=1e-1, rtol=.1)
+
+    assert torch.allclose(out[0], out2[0], atol=10, rtol=.1)
+    # assert torch.allclose(out[0], out2[0], atol=1, rtol=.1)
+    # assert torch.allclose(out[0], out2[0], atol=1e-1, rtol=.1)

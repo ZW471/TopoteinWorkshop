@@ -38,12 +38,12 @@ class ETNNModel(torch.nn.Module):
                 [cfg in kwargs for cfg in ["model_cfg", "layer_cfg"]]
             ), "All required ETNN `DictConfig`s must be provided."
             module_cfg = kwargs["model_cfg"]
-            layer_cfg = kwargs["layer_cfg"]
+
             for k, v in module_cfg.items():
                 setattr(self, k, v)
 
 
-        self.layers = torch.nn.ModuleList([ETNNLayer(self.emb_dim, self.in_dim1, self.in_dim2, self.dropout, self.activation) for _ in range(self.num_layers)])
+        self.layers = torch.nn.ModuleList([ETNNLayer(self.emb_dim, self.in_dim1, self.in_dim2, self.dropout, self.activation, **kwargs) for _ in range(self.num_layers)])
         self.emb_0 = torch.nn.Linear(self.in_dim0, self.emb_dim)
         self.pool = get_aggregation(self.pool)
 
@@ -79,9 +79,7 @@ class ETNNModel(torch.nn.Module):
 
 
         for layer in self.layers:
-            H0_update, X_update = layer(X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
-            H0 = H0 + H0_update
-            X = X + X_update
+            H0, X = layer(X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
         return {
             "node_embedding": H0,
             # "edge_embedding": torch.cat([H1, H1], dim=-1),
@@ -97,16 +95,23 @@ class ETNNModel(torch.nn.Module):
         return {"x", "pos", "edge_attr", "batch", "N2_0", "N1_0", "N0_0_via_1", "N0_0_via_2", "sse_attr"}
 
 
-@hydra.main(
-    version_base="1.3",
-    config_path=str(constants.SRC_PATH / "config" / "encoder"),
-    config_name="etnn.yaml",
-)
-def _main(cfg: DictConfig):
-    print(cfg)
-    enc = hydra.utils.instantiate(cfg)
-    print(enc)
-
-
+#%%
 if __name__ == "__main__":
-    _main()
+    #%%
+    batch = torch.load("/Users/dricpro/PycharmProjects/Topotein/test/data/sample_batch/sample_featurised_batch_edge_processed_simple.pt", weights_only=False)
+    print(batch)
+    #%%
+    model = ETNNModel(debug=True, activation="silu", num_layers=6, dropout=0, layer_cfg={
+        "norm": "layer",
+    })
+
+    out = model(batch)
+    #%%
+    print(batch.pos)
+    print(out['pos'])
+    #%%
+
+    assert torch.allclose(batch.pos, out['pos'], atol=10)
+    assert torch.allclose(batch.pos, out['pos'], atol=1)
+    print("All close")
+

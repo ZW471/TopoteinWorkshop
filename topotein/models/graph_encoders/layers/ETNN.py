@@ -127,8 +127,14 @@ def intra_neighborhood_agg(M: torch.Tensor, msgs: torch.Tensor) -> torch.Tensor:
 
 class ETNNLayer(MessagePassing):
     def __init__(self, emb_dim: int, edge_attr_dim: int = 2, sse_attr_dim: int = 4, dropout: float = 0.1,
-                 activation: str = "sigmoid", norm: str = "batch") -> None:
+                 activation: str = "silu", norm: str = "batch", **kwargs) -> None:
         super(ETNNLayer, self).__init__()
+
+        if "layer_cfg" in kwargs:
+            layer_cfg = kwargs.pop("layer_cfg")
+            for k, v in layer_cfg.items():
+                setattr(self, k, v)
+
         self.norm = {
             "layer": torch.nn.LayerNorm,
             "batch": torch.nn.BatchNorm1d,
@@ -173,7 +179,7 @@ class ETNNLayer(MessagePassing):
         )
         self.agg_intra = IntraNeighborhoodAggregator(aggr_func="sum")
         self.agg_inter = InterNeighborhoodAggregator(aggr_func="sum")
-        self.batch_norm = torch.nn.BatchNorm1d(emb_dim)
+
 
     def forward(self, X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0):
         # step 1 - message passing
@@ -190,7 +196,8 @@ class ETNNLayer(MessagePassing):
         x_update = self.agg_inter([msg_pos_via_1, msg_pos_via_2])
 
         # step 4 - update
-        H0 = self.phi_update(torch.cat([H0, h_update], dim=-1))
+        H0_update = self.phi_update(torch.cat([H0, h_update], dim=-1))
+        H0 = H0 + H0_update
         X = X + x_update
         return H0, X
 
@@ -223,26 +230,91 @@ class ETNNLayer(MessagePassing):
         return msg_sse, msg_edge
 
     def weighted_distance_difference(self, X, A, B, weights):
-        # A = remove_diagonal_entries(A).coalesce()
+        # Adjust weights according to the sparse/dense linkage.
         weights = cast_dense_by_sparse_link(weights, B, A)
+
         # 1. Get the edge indices.
         edge_indices = A._indices()  # Shape: [2, num_edges]
         source_indices = edge_indices[0]  # 1D tensor of source node indices
         target_indices = edge_indices[1]  # 1D tensor of target node indices
 
-        # print(A, weights.shape)
         # 2. Gather the coordinates.
         source_coords = X[source_indices]  # Shape: [num_edges, 3]
         target_coords = X[target_indices]  # Shape: [num_edges, 3]
 
         # 3. Compute differences and normalize each.
         diffs = source_coords - target_coords  # Shape: [num_edges, 3]
-        norms = diffs.norm(dim=1, keepdim=True) # Shape: [num_edges, 1]
-        epsilon = 1e-8
+        norms = diffs.norm(dim=1, keepdim=True)  # Shape: [num_edges, 1]
+        epsilon = 1
         normalized_diffs = weights * diffs / (norms + epsilon)  # Shape: [num_edges, 3]
 
-        # 4. Sum the normalized differences for each source node.
+        # 4. Aggregate the normalized differences by computing the mean for each source node.
         n = X.size(0)
-        result = torch.zeros(n, 3, device=X.device)
-        result = result.index_add(0, source_indices, normalized_diffs)
-        return result
+
+        # Sum the normalized differences for each source node.
+        result_sum = torch.zeros(n, 3, device=X.device)
+        result_sum = result_sum.index_add(0, source_indices, normalized_diffs)
+
+        # Count the number of contributions (edges) per source node.
+        counts = torch.zeros(n, device=X.device)
+        ones = torch.ones(source_indices.size(0), device=X.device)
+        counts = counts.index_add(0, source_indices, ones)
+
+        # Compute the mean by dividing the sum by the count (avoid division by zero).
+        result_mean = result_sum / counts.clamp(min=1).unsqueeze(1)
+
+        return result_mean
+
+#%%
+if __name__ == "__main__":
+    #%%
+    batch = torch.load("/Users/dricpro/PycharmProjects/Topotein/test/data/sample_batch/sample_featurised_batch_edge_processed_simple.pt", weights_only=False)
+    print(batch)
+    #%%
+    from toponetx import CellComplex
+    from topomodelx.utils.sparse import from_sparse
+
+    X = batch.pos
+    H0 = batch.x
+    H1 = batch.edge_attr
+    H2 = batch.sse_attr
+
+    device = X.device
+
+    cc: CellComplex = batch.sse_cell_complex
+    Bt = [from_sparse(cc.incidence_matrix(rank=i, signed=False).T).to(device) for i in range(1,3)]
+    N2_0 = (torch.sparse.mm(Bt[1], Bt[0]) / 2).coalesce()
+    N1_0 = Bt[0].coalesce()
+    N0_0_via_1 = from_sparse(cc.adjacency_matrix(rank=0, signed=False)).to(device)
+    N0_0_via_2 = torch.sparse.mm(N2_0.T, N2_0).coalesce()
+
+    #%%
+
+    layer = ETNNLayer(emb_dim=57, edge_attr_dim=2, sse_attr_dim=4, dropout=0, activation="silu", norm="batch")
+    H, pos = layer(X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
+    Q = torch.randn(3, 3)
+    t = torch.rand(3)
+    posQt = pos @ Q + t
+
+    QtH, QtPos = layer(X @ Q + t, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
+
+    assert torch.allclose(H, QtH, atol=10), f"Hidden state is not invariant to Q and t\n{H}\n{QtH}"
+    # assert torch.allclose(H, QtH, atol=1), f"Hidden state is not invariant to Q and t\n{H}\n{QtH}"
+    # assert torch.allclose(H, QtH, atol=.1), f"Hidden state is not invariant to Q and t\n{H}\n{QtH}"
+
+    assert torch.allclose(posQt, QtPos, atol=10), f"Position is not equivariant to Q and t\n{posQt}\n{QtPos}"
+    assert torch.allclose(posQt, QtPos, atol=1), f"Position is not equivariant to Q and t\n{posQt}\n{QtPos}"
+    assert torch.allclose(posQt, QtPos, atol=.1), f"Position is not equivariant to Q and t\n{posQt}\n{QtPos}"
+
+    print("All tests passed")
+
+    #%%
+    print(pos)
+    print(X)
+
+    #%%
+    (pos - X).abs().max()
+    #%%
+    (pos - X).abs().mean()
+    #%%
+    (pos - X).mean()

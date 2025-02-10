@@ -369,44 +369,71 @@ def _sparse_computation_indices(
 
 
 def sparse_computation_indices_from_cc(cell_ind, adj, max_cell_size=100):
+    """
+    Compute the indices needed for sparse computation of invariants.
+    
+    This version converts any torch.Tensor cells (which might be on a GPU)
+    to CPU and then to lists, so that NumPy operations (e.g. np.concatenate)
+    work correctly.
+    """
     agg_indices = {}
 
-    # first take sub sample of the cells if larger than max size
+    # Work on a copy so we don't change the original
     cell_ind = deepcopy(cell_ind)
+    # First, ensure each cell is a list of ints (not a torch.Tensor) and subsample if needed.
     for rank, cells in cell_ind.items():
+        new_cells = []
         for j, c in enumerate(cells):
+            # If the cell is a torch.Tensor, bring it to CPU and convert to a list.
+            if isinstance(c, torch.Tensor):
+                c = c.detach().cpu().tolist()
+            # If the cell is a NumPy array, convert to list.
+            elif isinstance(c, np.ndarray):
+                c = c.tolist()
+            # Now c should be a list of ints.
             if len(c) > max_cell_size:
+                # Use np.random.choice to subsample; np.random.choice requires an array-like input.
                 subsample = np.random.choice(c, max_cell_size, replace=False)
-                cell_ind[rank][j] = subsample.tolist()
+                new_cells.append(subsample.tolist())
+            else:
+                new_cells.append(c)
+        cell_ind[rank] = new_cells
 
-        # create agg indices for rank
-        # transform on the format of atoms/sizes needed by the helper functin
-        atoms = np.concatenate(cells)
-        slices = np.array([len(c) for c in cells])
+        # Create aggregation indices for the rank.
+        # Convert each cell (list) into a NumPy array so that np.concatenate works properly.
+        atoms = np.concatenate([np.array(c) for c in cell_ind[rank]])
+        slices = np.array([len(c) for c in cell_ind[rank]])
+        # Note: Here we pass atoms and slices twice (for sender and receiver) as in the original code.
         indices = _sparse_computation_indices(atoms, slices, atoms, slices)
         indices = SparseInvariantComputationIndices(*indices)
         agg_indices[rank] = indices
-        # [x.tolist() for x in indices]
 
-    # for each aggregation indices for edges
+    # Now, process the aggregation indices for each edge type.
     for adj_type, edges in adj.items():
-        # get the indices of the cells
+        # Get the ranks from the key (e.g. 'rank1_rank2')
         send_rank, recv_rank = adj_type.split("_")[:2]
 
-        # get the cells of sender and receiver
-        cells_send = [cell_ind[send_rank][i] for i in edges[0]]
-        cells_recv = [cell_ind[recv_rank][i] for i in edges[1]]
+        # edges is expected to be a tensor of shape (2, num_edges). Convert to list if needed.
+        if isinstance(edges[0], torch.Tensor):
+            send_indices = edges[0].detach().cpu().tolist()
+        else:
+            send_indices = edges[0]
+        if isinstance(edges[1], torch.Tensor):
+            recv_indices = edges[1].detach().cpu().tolist()
+        else:
+            recv_indices = edges[1]
 
-        # transform on the format of atoms/sizes needed by the helper functin
-        atoms_send = np.concatenate(cells_send)
+        # Get the corresponding cells for sender and receiver.
+        cells_send = [cell_ind[send_rank][i] for i in send_indices]
+        cells_recv = [cell_ind[recv_rank][i] for i in recv_indices]
+
+        # Build atoms and slices for sender and receiver cells.
+        atoms_send = np.concatenate([np.array(c) for c in cells_send])
         slices_send = np.array([len(c) for c in cells_send])
-        atoms_recv = np.concatenate(cells_recv)
+        atoms_recv = np.concatenate([np.array(c) for c in cells_recv])
         slices_recv = np.array([len(c) for c in cells_recv])
 
-        # get the indices of the cells
-        indices = _sparse_computation_indices(
-            atoms_send, slices_send, atoms_recv, slices_recv
-        )
+        indices = _sparse_computation_indices(atoms_send, slices_send, atoms_recv, slices_recv)
         indices = SparseInvariantComputationIndices(*indices)
         agg_indices[adj_type] = indices
 

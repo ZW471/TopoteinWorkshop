@@ -226,7 +226,6 @@ class ETNNLayer(MessagePassing):
             dist_norm,
             cast_dense_by_sparse_link(compute_sparse_messages(N1_0.T, H1), N1_0, N0_0_via_1)
         ], dim=-1))
-
         return msg_sse, msg_edge
 
     def weighted_distance_difference(self, X, A, B, weights):
@@ -289,9 +288,14 @@ if __name__ == "__main__":
     N0_0_via_2 = torch.sparse.mm(N2_0.T, N2_0).coalesce()
 
     #%%
-
-    layer = ETNNLayer(emb_dim=57, edge_attr_dim=2, sse_attr_dim=4, dropout=0, activation="silu", norm="batch")
+    emb = torch.randn(57, 512)
+    H0 = H0 @ emb
+    layer = ETNNLayer(emb_dim=512, edge_attr_dim=2, sse_attr_dim=4, dropout=0, activation="silu", norm="batch")
+    import time
+    tik = time.time()
     H, pos = layer(X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
+    tok = time.time()
+    print(f"Time taken: {tok-tik:.2f}s")
     Q = torch.randn(3, 3)
     t = torch.rand(3)
     posQt = pos @ Q + t

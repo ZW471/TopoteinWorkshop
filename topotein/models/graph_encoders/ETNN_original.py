@@ -11,7 +11,7 @@ from topomodelx.utils.sparse import from_sparse
 from torch_scatter import scatter_add
 
 from proteinworkshop.models.utils import get_aggregation
-from topotein.models.graph_encoders.layers.ETNN import ETNNLayer
+from topotein.models.graph_encoders.sotas.etnn.model import ETNNCore
 
 
 class ETNNModel(torch.nn.Module):
@@ -42,16 +42,26 @@ class ETNNModel(torch.nn.Module):
             for k, v in module_cfg.items():
                 setattr(self, k, v)
 
+        self.core = ETNNCore(
+            num_features_per_rank={0: self.in_dim0, 1: self.in_dim1, 2: self.in_dim2},
+            num_hidden=self.emb_dim,
+            num_out=self.emb_dim,
+            num_layers=self.num_layers,
+            adjacencies=["0_0_1", "0_0_2", "1_0", "2_0"],
+            initial_features=[],
+            visible_dims=[0, 1, 2],
+            normalize_invariants=True,
+            hausdorff_dists=True,
+            batch_norm=True,
+            sparse_invariant_computation=True,
+            pos_update=False,
+        )
 
-        self.layers = torch.nn.ModuleList([ETNNLayer(self.emb_dim, self.in_dim1, self.in_dim2, self.dropout, self.activation, **kwargs) for _ in range(self.num_layers)])
         self.emb_0 = torch.nn.Linear(self.in_dim0, self.emb_dim)
         self.pool = get_aggregation(self.pool)
 
     def forward(self, batch):
         X = batch.pos
-        H0 = self.emb_0(batch.x)
-        H1 = batch.edge_attr
-        H2 = batch.sse_attr
 
         device = X.device
 
@@ -75,20 +85,29 @@ class ETNNModel(torch.nn.Module):
             N0_0_via_1 = batch.N0_0_via_1
             N0_0_via_2 = batch.N0_0_via_2
 
+        def cell_list(i, format="list"):
+            cell_index_2 = [torch.tensor(inner_list, device=device) for inner_list in batch.sse_cell_index]
+            cell_index_1 = list(batch.edge_index.T)
+            cell_index_0 = list(torch.arange(0, batch.x.shape[0], device=device).T.unsqueeze(1))
+            list_of_cells = [
+                cell_index_0,
+                cell_index_1,
+                cell_index_2
+            ]
+            return list_of_cells[i]
 
+        batch.cell_list = cell_list
 
+        def get_adj(neighborhood_matrix):
+            return neighborhood_matrix.indices()[:, neighborhood_matrix.values() > 0]
 
-        for layer in self.layers:
-            H0, X = layer(X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
-        return {
-            "node_embedding": H0,
-            # "edge_embedding": torch.cat([H1, H1], dim=-1),
-            # "sse_embedding": H2,
-            "graph_embedding": self.pool(
-                H0, batch.batch
-            ),  # (n, d) -> (batch_size, d)
-            "pos": X
-        }
+        batch.adj_0_0_1 = get_adj(N0_0_via_1)
+        batch.adj_0_0_2 = get_adj(N0_0_via_2)
+        batch.adj_1_0 = get_adj(N1_0)
+        batch.adj_2_0 = get_adj(N2_0)
+
+        out = self.core(batch)
+        return out
 
     @property
     def required_batch_attributes(self) -> Set[str]:

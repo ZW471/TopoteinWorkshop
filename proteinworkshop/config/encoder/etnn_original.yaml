@@ -1,4 +1,4 @@
-_target_: topotein.models.graph_encoders.ETNN.ETNNModel
+_target_: topotein.models.graph_encoders.ETNN_original.ETNNModel
 features:
   # note: will manually be injected into `/features` via `validate_topotein_config()` of `proteinworkshop/configs/config.py`
   neighborhoods:

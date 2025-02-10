@@ -21,6 +21,7 @@ CATEGORY_DSSP_8 = {"H", "B", "E", "G", "I", "T", "S", "C"}
 def compute_sses(
         x: Union[Data, Batch, Protein, ProteinBatch],
         sse_types: Union[ListConfig, List[str]],
+        directed_edges=False
 ) -> Tuple[torch.Tensor, Tuple[Tuple[int, ...], ...], tnx.CellComplex]:
     """
     Orchestrates the computation of cells for a given data object.
@@ -56,7 +57,8 @@ def compute_sses(
         raise ValueError(f"invalid sse types, valid sse types are: {CATEGORY_DSSP_8}")
 
     # construct cell complex
-    sse_group_cc = to_cell_complex(x)
+    sse_group_cc = to_cell_complex(x, directed=directed_edges)
+    sse_group_cc.complex['sse_type'] = list(sse_types)
 
     if is_using_simple_categories:
         sse_group_cc.complex['sse_type_num'] = len(sse_types)

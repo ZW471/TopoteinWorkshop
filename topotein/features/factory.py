@@ -67,17 +67,6 @@ class TopoteinFeaturiser(ProteinFeaturiser):
             batch.edge_type = torch.tensor(list(edge_attr_dict.values()), device=device).unsqueeze(0)
             batch.num_relation += 1  # a new kind of edge is introduced by sse cells (connecting SSE start with end)
 
-            # Scalar edge features
-            if self.scalar_edge_features_after_sse:
-                batch.edge_attr = compute_scalar_edge_features(
-                    batch, self.scalar_edge_features_after_sse
-                )
-
-            # Vector edge features
-            if self.vector_edge_features_after_sse:
-                batch = compute_vector_edge_features(
-                    batch, self.vector_edge_features_after_sse
-                )
 
             # Scalar cell features
             if self.scalar_sse_features:
@@ -97,6 +86,18 @@ class TopoteinFeaturiser(ProteinFeaturiser):
                 )
                 for name, value in neighborhoods.items():
                     batch[name] = value
+        
+        # Scalar edge features
+        if self.scalar_edge_features_after_sse:
+            batch.edge_attr = compute_scalar_edge_features(
+                batch, self.scalar_edge_features_after_sse
+            )
+
+        # Vector edge features
+        if self.vector_edge_features_after_sse:
+            batch = compute_vector_edge_features(
+                batch, self.vector_edge_features_after_sse
+            )
 
         return batch
 

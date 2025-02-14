@@ -127,9 +127,10 @@ def intra_neighborhood_agg(M: torch.Tensor, msgs: torch.Tensor) -> torch.Tensor:
 
 class ETNNLayer(MessagePassing):
     def __init__(self, emb_dim: int, edge_attr_dim: int = 2, sse_attr_dim: int = 4, dropout: float = 0.1,
-                 activation: str = "silu", norm: str = "batch", **kwargs) -> None:
+                 activation: str = "silu", norm: str = "batch", position_update=False, **kwargs) -> None:
         super(ETNNLayer, self).__init__()
 
+        self.position_update = position_update
         if "layer_cfg" in kwargs:
             layer_cfg = kwargs.pop("layer_cfg")
             for k, v in layer_cfg.items():
@@ -160,13 +161,14 @@ class ETNNLayer(MessagePassing):
             self.activation,
             Dropout(dropout),
         )
-        self.phi_x = Sequential(
-            Linear(emb_dim, emb_dim),
-            self.norm(emb_dim),
-            self.activation,
-            Dropout(dropout),
-            Linear(emb_dim, 1),
-        )
+        if self.position_update:
+            self.phi_x = Sequential(
+                Linear(emb_dim, emb_dim),
+                self.norm(emb_dim),
+                self.activation,
+                Dropout(dropout),
+                Linear(emb_dim, 1),
+            )
         self.phi_update = Sequential(
             Linear(2 * emb_dim, emb_dim),
             self.norm(emb_dim),
@@ -186,14 +188,19 @@ class ETNNLayer(MessagePassing):
         msg_sse, msg_edge = self.message(X, H0, H1, H2, N0_0_via_1, N0_0_via_2, N2_0, N1_0)
 
         # step 2 - intra-neighborhood aggregation
-        msg_pos_via_1 = self.weighted_distance_difference(X, N0_0_via_1, N1_0, self.phi_x(msg_edge))
-        msg_pos_via_2 = self.weighted_distance_difference(X, N0_0_via_2, N2_0, self.phi_x(msg_sse))
+        if self.position_update:
+            msg_pos_via_1 = self.weighted_distance_difference(X, N0_0_via_1, N1_0, self.phi_x(msg_edge))
+            msg_pos_via_2 = self.weighted_distance_difference(X, N0_0_via_2, N2_0, self.phi_x(msg_sse))
 
         msg_sse = self.agg_intra(N0_0_via_2, msg_sse)
         msg_edge = self.agg_intra(N0_0_via_1, msg_edge)
         # step 3 - inter-neighborhood aggregation
         h_update = self.agg_inter([msg_sse, msg_edge])
-        x_update = self.agg_inter([msg_pos_via_1, msg_pos_via_2])
+
+        if self.position_update:
+            x_update = self.agg_inter([msg_pos_via_1, msg_pos_via_2])
+        else:
+            x_update = 0
 
         # step 4 - update
         H0_update = self.phi_update(torch.cat([H0, h_update], dim=-1))

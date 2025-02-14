@@ -6,6 +6,7 @@ features:
     - N1_0 = B1.T
     - N0_0_via_1 = A0
     - N0_0_via_2 = B1 @ B2 @ B2.T @ B1.T / 4
+#  directed_edge: False
 
 num_layers: 6 # Number of layers in the model
 emb_dim: 128
@@ -24,3 +25,4 @@ model_cfg:
 
 layer_cfg:
   norm: batch
+  position_update: False

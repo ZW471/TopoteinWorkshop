@@ -25,5 +25,5 @@ scalar_sse_features:
 #  - node_features
 vector_sse_features: []
 neighborhoods: []
-directed_edges: True
+directed_edges: False
 

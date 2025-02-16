@@ -10,6 +10,7 @@ from omegaconf import ListConfig
 from torch_geometric.data import Batch, Data
 
 from proteinworkshop.features.utils import _normalize
+from proteinworkshop.models.graph_encoders.components import radial
 
 EDGE_FEATURES: List[str] = [
     "edge_distance",
@@ -46,6 +47,9 @@ def compute_scalar_edge_features(
             raise NotImplementedError
         elif feature == "sequence_distance":
             feats.append(x.edge_index[1] - x.edge_index[0])
+        elif feature == "rbf":
+            distance = compute_edge_distance(x.pos, x.edge_index)
+            feats.append(radial.compute_rbf(distance))
         elif feature == "pos_emb":
             feats.append(pos_emb(x.edge_index))
         else:

@@ -100,6 +100,7 @@ def get_input_dim(
             )
         ),
         "sequence_distance": 1,
+        "rbf": 8,
         # TODO fill-in remaining scalar edge features
         ### vector edge features ###
         "edge_vectors": 1,

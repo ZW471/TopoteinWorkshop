@@ -15,6 +15,7 @@ from topotein.features.sse import sse_onehot
 from proteinworkshop.types import ScalarNodeFeature, VectorNodeFeature, ScalarEdgeFeature, VectorEdgeFeature, \
     ScalarCellFeature, VectorCellFeature
 
+# note: remember to add feature dimension in the models.utils.get_input_dim function
 
 class TopoteinFeaturiser(ProteinFeaturiser):
     def __init__(
@@ -130,6 +131,7 @@ if __name__ == "__main__":
         / "features"
         / "ca_bb_sse.yaml"
     )
+    cfg['scalar_edge_features'] += ['rbf']
     cfg['scalar_sse_features'] += ["sse_vector_norms", "sse_variance_wrt_localized_frame"]
     cfg['vector_sse_features'] += ["sse_vectors"]
     featuriser = hydra.utils.instantiate(cfg)

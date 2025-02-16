@@ -25,6 +25,7 @@ CELL_FEATURES: List[str] = [
 ]
 """List of cell features that can be computed."""
 
+# note: remember to add feature dimension in the models.utils.get_input_dim function
 
 @jaxtyped(typechecker=typechecker)
 def compute_scalar_cell_features(

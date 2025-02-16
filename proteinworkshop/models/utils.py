@@ -106,7 +106,11 @@ def get_input_dim(
         # TODO fill-in remaining vector edge features
         ### scalar cell features ###
         "sse_one_hot": 3,
-        "sse_size": 1
+        "sse_size": 1,
+        "sse_vector_norms": 8,
+        "sse_variance_wrt_localized_frame": 3,
+        ### vector cell features ###
+        "sse_vectors": 8
     }
 
     sizes = [

@@ -18,6 +18,7 @@ from torch_geometric.utils import to_dense_batch
 from proteinworkshop.models.utils import get_loss
 from proteinworkshop.types import EncoderOutput, Label, ModelOutput
 from proteinworkshop.utils.memory_utils import clean_up_torch_gpu_memory
+from proteinworkshop.utils.test import get_random_protein_safe
 
 
 class BaseModel(L.LightningModule, abc.ABC):
@@ -455,7 +456,7 @@ class BenchMarkModel(BaseModel):
         """
         with torch.no_grad():
             proteins = [
-                get_random_protein()
+                get_random_protein_safe()
                 for _ in range(self.config.dataset.datamodule.batch_size)
             ]
             for p in proteins:

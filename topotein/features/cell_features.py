@@ -4,6 +4,7 @@ from typing import List, Union
 import numpy as np
 import torch
 from beartype import beartype as typechecker
+from graphein.protein.tensor.data import ProteinBatch
 from graphein.protein.tensor.types import CoordTensor, EdgeTensor
 from jaxtyping import jaxtyped
 from omegaconf import ListConfig
@@ -11,12 +12,16 @@ from torch_geometric.data import Batch, Data
 import toponetx as tnx
 from proteinworkshop.features.utils import _normalize
 from torch.nn.utils.rnn import pad_sequence
+from proteinworkshop.models.utils import localize, centralize
 
 CELL_FEATURES: List[str] = [
     "cell_size",
     "node_features",
     "edge_features",
     "cell_type",
+    "sse_vector_norms",
+    "sse_one_hot",
+    "sse_variance_wrt_localized_frame"
 ]
 """List of cell features that can be computed."""
 
@@ -44,10 +49,13 @@ def compute_scalar_cell_features(
             raise NotImplementedError
         elif feature == "sse_one_hot":
             feats.append(x.sse.to(x.x.device))
-        elif feature == "orientation":
-            raise NotImplementedError
         elif feature == "pos_emb":  # TODO: investigate whether edge pos_emb is actually used first
             feats.append(pos_emb(x.cell_index))
+        elif feature == "sse_vector_norms":
+            vectors = vector_features(x.pos, x.sse_cell_index_simple)
+            feats.append(torch.norm(torch.stack(vectors, dim=2), dim=1))
+        elif feature == "sse_variance_wrt_localized_frame":
+            feats.append(variance_wrt_localized_frame(x))
         else:
             raise ValueError(f"Unknown cell feature {feature}")
     feats = [feat.unsqueeze(1) if feat.ndim == 1 else feat for feat in feats]
@@ -80,12 +88,13 @@ def compute_vector_cell_features(
     """
     vector_cell_features = []
     for feature in features:
-        if feature == "cell_vectors":  # TODO
-            E_vectors = x.pos[x.cell_index[0]] - x.pos[x.cell_index[1]]
-            vector_cell_features.append(_normalize(E_vectors).unsqueeze(-2))
+        if feature == "sse_vectors":  # TODO
+            sse_vectors = vector_features(x.pos, x.sse_cell_index_simple)
+            for sse_vector in sse_vectors:
+                vector_cell_features.append(_normalize(sse_vector).unsqueeze(-2))
         else:
             raise ValueError(f"Vector feature {feature} not recognised.")
-    return torch.cat(vector_cell_features, dim=0)
+    return torch.cat(vector_cell_features, dim=1).float()
 
 
 @jaxtyped(typechecker=typechecker)
@@ -153,3 +162,73 @@ def pos_emb(cell_index: EdgeTensor, num_pos_emb: int = 16):
     )
     angles = d.unsqueeze(-1) * frequency
     return torch.cat((torch.cos(angles), torch.sin(angles)), -1)
+
+
+@jaxtyped(typechecker=typechecker)
+def variance_wrt_localized_frame(batch: ProteinBatch) -> torch.Tensor:
+    _, X_c = centralize(batch, key='pos', batch_index=batch.batch)
+    frames = localize(X_c, batch.sse_cell_index_simple)
+
+    results = []
+    n_segments = batch.sse_cell_index_simple.shape[1]
+    for i in range(n_segments):
+        start = batch.sse_cell_index_simple[0, i]
+        end = batch.sse_cell_index_simple[1, i]
+        # Process the segment
+        seg_result = (X_c[start:end, :] @ frames[i].T).var(dim=0)
+        results.append(seg_result)
+    # Stack the variance results; shape: (n_segments, output_features)
+    return torch.stack(results, dim=0)
+
+
+@jaxtyped(typechecker=typechecker)
+def vector_features(X: torch.Tensor, sse_idx: torch.Tensor) -> list[torch.Tensor]:
+    """
+    Extracts a list of geometric vector features from 3D spatial coordinates and structured
+    secondary element (SSE) index data.
+
+    This function computes various vectors derived from the coordinates of the start, end, and
+    median positions of SSEs, as well as their relationships to the center of mass (COM) and
+    other intermediate positions. The features include vectors such as start-to-end, median-
+    to-start, etc. These vectors can be used as input for downstream processing or modeling.
+
+    :param X: A tensor containing the 3D spatial coordinates of residues.
+    :param sse_idx: A tensor containing the indices of the start and end residues for
+        SSEs, with shape (2, n) where n is the number of SSEs.
+    :return: A list of geometric vector features, where each feature is a tensor.
+    """
+    com_pos = X.mean(dim=0)
+
+    start_residue_idx = sse_idx[0, :]
+    end_residue_idx = sse_idx[1, :]
+
+    start_residue_pos = X[start_residue_idx, :]
+    end_residue_pos = X[end_residue_idx, :]
+    middle_pos = (start_residue_pos + end_residue_pos) / 2
+
+    median_residue_idx = (start_residue_idx + end_residue_idx) / 2
+    s_median_residue_idx = torch.ceil(median_residue_idx).long()
+    e_median_residue_idx = torch.floor(median_residue_idx).long()
+    median_residue_pos = ((X[e_median_residue_idx, :] + X[s_median_residue_idx, :]) / 2)
+
+    s_to_e_vec = end_residue_pos - start_residue_pos
+    med_to_s_vec = start_residue_pos - median_residue_pos
+    med_to_e_vec = end_residue_pos - median_residue_pos
+    com_to_s_vec = start_residue_pos - com_pos
+    com_to_e_vec = end_residue_pos - com_pos
+    med_to_com_vec = com_pos - median_residue_pos
+    med_to_middle_vec = middle_pos - median_residue_pos
+    middle_to_com_vec = com_pos - middle_pos
+
+    features = [
+        s_to_e_vec,
+        med_to_s_vec,
+        med_to_e_vec,
+        com_to_s_vec,
+        com_to_e_vec,
+        med_to_com_vec,
+        med_to_middle_vec,
+        middle_to_com_vec
+    ]
+
+    return features

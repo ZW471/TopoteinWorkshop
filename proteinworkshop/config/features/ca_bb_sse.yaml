@@ -22,6 +22,8 @@ sse_types:
 scalar_sse_features:
   - sse_one_hot
   - sse_size
+  - sse_vector_norms
+  - sse_variance_wrt_localized_frame
 #  - node_features
 vector_sse_features: []
 neighborhoods: []

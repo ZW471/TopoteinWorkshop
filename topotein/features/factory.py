@@ -58,6 +58,12 @@ class TopoteinFeaturiser(ProteinFeaturiser):
                 batch, self.sse_types, directed_edges=self.directed_edges
             )
             batch.num_sse_type = len(self.sse_types)
+            batch.sse_cell_index_simple = torch.tensor(
+                [(t[0], t[-1]) for t in batch.sse_cell_index],
+                dtype=torch.long,
+                device=batch.x.device,
+            ).T
+
 
             # recreate the edge indices
             cc: CellComplex = batch.sse_cell_complex
@@ -107,3 +113,30 @@ class TopoteinFeaturiser(ProteinFeaturiser):
 
     def __repr__(self) -> str:
         return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features_after_sse}, vector_edge_features={self.vector_edge_features_after_sse}, cell_types={self.sse_types}, scalar_cell_features={self.scalar_sse_features}, vector_cell_features={self.vector_sse_features}, neighborhoods={self.neighborhoods})"
+
+
+#%%
+
+if __name__ == "__main__":
+    import hydra
+    import omegaconf
+
+    from proteinworkshop import constants
+
+    cfg = omegaconf.OmegaConf.load(
+        constants.PROJECT_PATH
+        / "proteinworkshop"
+        / "config"
+        / "features"
+        / "ca_bb_sse.yaml"
+    )
+    cfg['scalar_sse_features'] += ["sse_vector_norms", "sse_variance_wrt_localized_frame"]
+    cfg['vector_sse_features'] += ["sse_vectors"]
+    featuriser = hydra.utils.instantiate(cfg)
+    batch: ProteinBatch = torch.load('/Users/dricpro/PycharmProjects/Topotein/test/data/sample_batch/sample_batch_with_vec_attr.pt', weights_only=False)
+    print(batch)
+    batch = featuriser(batch)
+    print(batch)
+
+
+

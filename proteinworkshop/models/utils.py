@@ -110,7 +110,7 @@ def get_input_dim(
         "sse_vector_norms": 8,
         "sse_variance_wrt_localized_frame": 3,
         ### vector cell features ###
-        "sse_vectors": 8
+        "sse_vectors": 8,
     }
 
     sizes = [

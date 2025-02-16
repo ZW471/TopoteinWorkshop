@@ -143,7 +143,8 @@ if __name__ == "__main__":
 
     cfg = omegaconf.OmegaConf.load(
         constants.PROJECT_PATH
-        / "configs"
+        / "proteinworkshop"
+        / "config"
         / "features"
         / "all_invariant_ca.yaml"
     )

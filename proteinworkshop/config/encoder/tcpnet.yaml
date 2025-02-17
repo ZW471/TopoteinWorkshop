@@ -1,0 +1,30 @@
+_target_: topotein.models.graph_encoders.ETNN.ETNNModel
+features:
+  # note: will manually be injected into `/features` via `validate_topotein_config()` of `proteinworkshop/configs/config.py`
+  neighborhoods:
+    - N2_0 = B2.T @ B1.T / 2
+    - N1_0 = B1.T
+    - N0_0_via_1 = A0
+    - N0_0_via_2 = B1 @ B2 @ B2.T @ B1.T / 4
+  vector_node_features: [ "orientation" ]
+  vector_edge_features: [ "edge_vectors" ]
+  vector_sse_features: [ "sse_vectors" ]
+
+num_layers: 6 # Number of layers in the model
+emb_dim: 128
+activation: silu # Activation function to use in each GCP layer
+pool: sum # Global pooling method to be used
+
+model_cfg:
+  in_dim0: ${resolve_feature_config_dim:${features},scalar_node_features,${task},true}
+  in_dim1: ${resolve_feature_config_dim:${features},scalar_edge_features,${task},true}
+  in_dim2: ${resolve_feature_config_dim:${features},scalar_sse_features,${task},true}
+  emb_dim: ${..emb_dim}
+  activation: ${..activation}
+  num_layers: ${..num_layers}
+  pool: ${..pool}
+  dropout: 0.1
+
+layer_cfg:
+  norm: batch
+  position_update: False

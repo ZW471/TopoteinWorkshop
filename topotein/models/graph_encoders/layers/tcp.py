@@ -92,9 +92,6 @@ if __name__ == "__main__":
     from proteinworkshop.models.utils import centralize, localize
     from omegaconf import OmegaConf
     from proteinworkshop.constants import PROJECT_PATH
-    #%%
-    print(PROJECT_PATH)
-    #%%
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     batch: ProteinBatch = torch.load(f'{PROJECT_PATH}/../test/data/sample_batch/sample_batch_for_tcp.pt', weights_only=False).to(device)

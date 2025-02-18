@@ -74,7 +74,7 @@ class TopoteinFeaturiser(ProteinFeaturiser):
             batch.edge_type = torch.tensor(list(edge_attr_dict.values()), device=device).unsqueeze(0)
             batch.num_relation += 1  # a new kind of edge is introduced by sse cells (connecting SSE start with end)
 
-            # note: this is not a good idea because tnx treats edges naturally as undirected - this way will cause edge index to be doubled than neighborhood matrices
+            # note: this does not align with neighborhood matrices
             # if not self.directed_edges:
             #     batch.edge_index = torch.cat([batch.edge_index, batch.edge_index.flip([0])], dim=1)
             #     batch.edge_type = torch.cat([batch.edge_type, batch.edge_type], dim=1)
@@ -132,14 +132,18 @@ if __name__ == "__main__":
         / "features"
         / "ca_bb_sse.yaml"
     )
-    cfg['scalar_edge_features'] += ['rbf']
-    cfg['scalar_sse_features'] += ["sse_vector_norms", "sse_variance_wrt_localized_frame"]
+    cfg['vector_node_features'] += ['orientation']
+    # cfg['scalar_edge_features'] += ['rbf']
+    cfg['vector_edge_features'] += ["edge_vectors"]
+    # cfg['scalar_sse_features'] += ["sse_vector_norms", "sse_variance_wrt_localized_frame"]
     cfg['vector_sse_features'] += ["sse_vectors"]
     featuriser = hydra.utils.instantiate(cfg)
-    batch: ProteinBatch = torch.load('/Users/dricpro/PycharmProjects/Topotein/test/data/sample_batch/sample_batch_with_vec_attr.pt', weights_only=False)
+    batch: ProteinBatch = torch.load('/Users/dricpro/PycharmProjects/Topotein/test/data/sample_batch/sample_batch_for_tcp.pt', weights_only=False)
     print(batch)
     batch = featuriser(batch)
     print(batch)
+
+    torch.save(batch, 'sample_batch_for_tcp.pt')
 
 
 

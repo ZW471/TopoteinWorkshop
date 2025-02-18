@@ -52,7 +52,7 @@ def compute_scalar_cell_features(
         elif feature == "pos_emb":  # TODO: investigate whether edge pos_emb is actually used first
             feats.append(pos_emb(x.cell_index))
         elif feature == "sse_vector_norms":
-            vectors = vector_features(x.pos, x.sse_cell_index_simple)
+            vectors = vector_features(x)
             feats.append(torch.norm(torch.stack(vectors, dim=2), dim=1))
         elif feature == "sse_variance_wrt_localized_frame":
             feats.append(variance_wrt_localized_frame(x))
@@ -89,7 +89,7 @@ def compute_vector_cell_features(
     vector_cell_features = []
     for feature in features:
         if feature == "sse_vectors":  # TODO
-            sse_vectors = vector_features(x.pos, x.sse_cell_index_simple)
+            sse_vectors = vector_features(x)
             for sse_vector in sse_vectors:
                 vector_cell_features.append(_normalize(sse_vector).unsqueeze(-2))
         else:
@@ -182,7 +182,7 @@ def variance_wrt_localized_frame(batch: ProteinBatch) -> torch.Tensor:
 
 
 @jaxtyped(typechecker=typechecker)
-def vector_features(X: torch.Tensor, sse_idx: torch.Tensor) -> list[torch.Tensor]:
+def vector_features(batch: ProteinBatch) -> list[torch.Tensor]:
     """
     Extracts a list of geometric vector features from 3D spatial coordinates and structured
     secondary element (SSE) index data.
@@ -197,10 +197,15 @@ def vector_features(X: torch.Tensor, sse_idx: torch.Tensor) -> list[torch.Tensor
         SSEs, with shape (2, n) where n is the number of SSEs.
     :return: A list of geometric vector features, where each feature is a tensor.
     """
-    com_pos = X.mean(dim=0)
 
-    start_residue_idx = sse_idx[0, :]
-    end_residue_idx = sse_idx[1, :]
+    node_idx_in_sse = torch.cat([torch.arange(s, e) for s, e in batch.sse_cell_index_simple.T], dim=-1)
+    sse_batch = torch.cat([torch.ones(e - s) * idx for idx, (s, e) in enumerate(batch.sse_cell_index_simple.T)], dim=-1).long()
+    batch['pos_in_sse'] = batch.pos[node_idx_in_sse]
+    com_pos, _ = centralize(batch, key='pos_in_sse', batch_index=sse_batch)
+    X = batch.pos
+
+    start_residue_idx = batch.sse_cell_index_simple[0, :]
+    end_residue_idx = batch.sse_cell_index_simple[1, :]
 
     start_residue_pos = X[start_residue_idx, :]
     end_residue_pos = X[end_residue_idx, :]

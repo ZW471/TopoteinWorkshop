@@ -198,8 +198,9 @@ def vector_features(batch: ProteinBatch) -> list[torch.Tensor]:
     :return: A list of geometric vector features, where each feature is a tensor.
     """
 
-    node_idx_in_sse = torch.cat([torch.arange(s, e) for s, e in batch.sse_cell_index_simple.T], dim=-1)
-    sse_batch = torch.cat([torch.ones(e - s) * idx for idx, (s, e) in enumerate(batch.sse_cell_index_simple.T)], dim=-1).long()
+    device = batch.pos.device
+    node_idx_in_sse = torch.cat([torch.arange(s, e, device=device) for s, e in batch.sse_cell_index_simple.T], dim=-1)
+    sse_batch = torch.cat([torch.ones(e - s, device=device) * idx for idx, (s, e) in enumerate(batch.sse_cell_index_simple.T)], dim=-1).long()
     batch['pos_in_sse'] = batch.pos[node_idx_in_sse]
     com_pos, _ = centralize(batch, key='pos_in_sse', batch_index=sse_batch)
     X = batch.pos

@@ -24,7 +24,14 @@ def get_random_protein_safe(pdb=None, offline=True) -> "Protein":
         protein = Protein().from_pdb_code(pdb)
 
         data_dir = proteinworkshop.constants.DATA_PATH
+        sample_proteins_dir = os.path.join(data_dir, "sample_proteins")
+        
+        # Ensure the sample_proteins directory exists
+        os.makedirs(sample_proteins_dir, exist_ok=True)
+        
         print(f'Saving protein {pdb} to {data_dir}...')
+        
+        
         torch.save(protein, os.path.join(data_dir, "sample_proteins", f"{pdb}.pt"))
 
         return protein

@@ -1,15 +1,21 @@
+from copy import copy
+from functools import partial
+
 import torch_scatter
 from beartype import beartype as typechecker
 from torch import nn
 
 from proteinworkshop.models.graph_encoders.components.wrappers import ScalarVector
-from proteinworkshop.models.graph_encoders.layers.gcp import GCPEmbedding, GCPLayerNorm, GCP
+from proteinworkshop.models.graph_encoders.layers.gcp import GCPEmbedding, GCPLayerNorm, GCP, GCPInteractions, \
+    GCPMessagePassing, get_GCP_with_custom_cfg
 from typing import Any, Optional, Tuple, Union
 from torch_geometric.data import Batch
 from graphein.protein.tensor.data import ProteinBatch
 import torch
 from jaxtyping import Bool, Float, Int64, jaxtyped
-from topotein.models.utils import centralize
+
+from topotein.models.utils import centralize, lift_features_with_padding
+from omegaconf import DictConfig
 
 
 class TCP(GCP):
@@ -244,10 +250,6 @@ class TCP(GCP):
         return ScalarVector(scalar_rep, vector_rep)
 
 
-
-
-
-
 class TCPEmbedding(GCPEmbedding):
     def __init__(self, cell_input_dims, cell_hidden_dims, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -329,6 +331,213 @@ class TCPEmbedding(GCPEmbedding):
         return node_rep, edge_rep, cell_rep
 
 
+class TCPMessagePassing(GCPMessagePassing):
+
+    @jaxtyped(typechecker=typechecker)
+    def message(
+            self,
+            node_rep: ScalarVector,
+            edge_rep: ScalarVector,
+            cell_rep: ScalarVector,
+            edge_index: Int64[torch.Tensor, "2 batch_num_edges"],
+            frames: Float[torch.Tensor, "batch_num_edges 3 3"],
+            cell_frames: Optional[Float[torch.Tensor, "batch_num_cells 3 3"]] = None,
+            node_to_sse_mapping: torch.Tensor = None,
+            node_mask: Optional[Bool[torch.Tensor, "batch_num_nodes"]] = None,
+    ) -> Float[torch.Tensor, "batch_num_edges message_dim"]:
+        row, col = batch.edge_index
+        node_vector = node_rep.vector.reshape(
+            node_rep.vector.shape[0],
+            node_rep.vector.shape[1] * node_rep.vector.shape[2],
+            )
+        vector_reshaped = ScalarVector(node_rep.scalar, node_vector)
+        print(vector_reshaped.scalar.shape, vector_reshaped.vector.shape)
+
+        node_s_row, node_v_row = vector_reshaped.idx(row)
+        node_s_col, node_v_col = vector_reshaped.idx(col)
+
+        node_v_row = node_v_row.reshape(node_v_row.shape[0], node_v_row.shape[1] // 3, 3)
+        node_v_col = node_v_col.reshape(node_v_col.shape[0], node_v_col.shape[1] // 3, 3)
+
+        # cell features for edge
+        cell_vector = cell_rep.vector.reshape(
+            cell_rep.vector.shape[0],
+            cell_rep.vector.shape[1] * cell_rep.vector.shape[2],
+            )
+        cell_scalar = lift_features_with_padding(cell_rep.scalar, neighborhood=node_to_sse_mapping)
+        cell_vector = lift_features_with_padding(cell_vector, neighborhood=node_to_sse_mapping)
+
+        vector_reshaped = ScalarVector(cell_scalar, cell_vector)
+
+        cell_s_row, cell_v_row = vector_reshaped.idx(row)
+        cell_s_col, cell_v_col = vector_reshaped.idx(col)
+
+        cell_v_row = cell_v_row.reshape(cell_v_row.shape[0], cell_v_row.shape[1] // 3, 3)
+        cell_v_col = cell_v_col.reshape(cell_v_col.shape[0], cell_v_col.shape[1] // 3, 3)
+
+
+        message = edge_rep.concat((
+            ScalarVector(node_s_row, node_v_row),
+            ScalarVector(node_s_col, node_v_col),
+            ScalarVector((cell_s_row - cell_s_col).abs(), (cell_v_row - cell_v_col).abs()),
+        ))
+
+        message_residual = self.message_fusion[0](
+            message, edge_index, frames, node_inputs=False, node_mask=node_mask
+        )
+        for module in self.message_fusion[1:]:
+            # exchange geometric messages while maintaining residual connection to original message
+            new_message = module(
+                message_residual,
+                edge_index,
+                frames,
+                node_inputs=False,
+                node_mask=node_mask,
+            )
+            message_residual = message_residual + new_message
+
+        # learn to gate scalar messages
+        if self.use_scalar_message_attention:
+            message_residual_attn = self.scalar_message_attention(
+                message_residual.scalar
+            )
+            message_residual = ScalarVector(
+                message_residual.scalar * message_residual_attn,
+                message_residual.vector,
+                )
+
+        return message_residual.flatten()
+
+
+    @jaxtyped(typechecker=typechecker)
+    def forward(
+            self,
+            node_rep: ScalarVector,
+            edge_rep: ScalarVector,
+            cell_rep: ScalarVector,
+            edge_index: Int64[torch.Tensor, "2 batch_num_edges"],
+            frames: Float[torch.Tensor, "batch_num_edges 3 3"],
+            cell_frames: Optional[Float[torch.Tensor, "batch_num_cells 3 3"]] = None,
+            node_to_sse_mapping: torch.Tensor = None,
+            node_mask: Optional[Bool[torch.Tensor, "batch_num_nodes"]] = None,
+    ) -> ScalarVector:
+        message = self.message(
+            node_rep, edge_rep, cell_rep, edge_index, frames, cell_frames, node_to_sse_mapping, node_mask
+        )
+        aggregate = self.aggregate(
+            message, edge_index, dim_size=node_rep.scalar.shape[0]
+        )
+        return ScalarVector.recover(aggregate, self.vector_output_dim)
+
+
+
+
+class TCPInteractions(GCPInteractions):
+    def __init__(self, node_dims: ScalarVector, edge_dims: ScalarVector, cell_dims: ScalarVector, cfg: DictConfig, layer_cfg: DictConfig,
+                 dropout: float = 0.0, nonlinearities: Optional[Tuple[Any, Any]] = None):
+        super().__init__(node_dims, edge_dims, cfg, layer_cfg, dropout, nonlinearities)
+        self.interaction = TCPMessagePassing(
+            ScalarVector(
+                node_dims.scalar + cell_dims.scalar // 2,
+                node_dims.vector + cell_dims.vector // 2,
+            ),
+            node_dims,
+            edge_dims,
+            cfg=cfg,
+            mp_cfg=layer_cfg.mp_cfg,
+            reduce_function="sum",
+            use_scalar_message_attention=layer_cfg.use_scalar_message_attention,
+        )
+
+    @jaxtyped(typechecker=typechecker)
+    def forward(
+            self,
+            node_rep: Tuple[
+                Float[torch.Tensor, "batch_num_nodes node_hidden_dim"],
+                Float[torch.Tensor, "batch_num_nodes m 3"],
+            ],
+            edge_rep: Tuple[
+                Float[torch.Tensor, "batch_num_edges edge_hidden_dim"],
+                Float[torch.Tensor, "batch_num_edges x 3"],
+            ],
+            cell_rep: Tuple[
+                Float[torch.Tensor, "batch_num_cells cell_hidden_dim"],
+                Float[torch.Tensor, "batch_num_cells c 3"],
+            ],
+            edge_index: Int64[torch.Tensor, "2 batch_num_edges"],
+            frames: Float[torch.Tensor, "batch_num_edges 3 3"],
+            cell_frames: Optional[Float[torch.Tensor, "batch_num_cells 3 3"]] = None,
+            node_mask: Optional[Bool[torch.Tensor, "batch_num_nodes"]] = None,
+            node_pos: Optional[Float[torch.Tensor, "batch_num_nodes 3"]] = None,
+            node_to_sse_mapping: torch.Tensor = None,
+    ) -> Tuple[
+        Tuple[
+            Float[torch.Tensor, "batch_num_nodes hidden_dim"],
+            Float[torch.Tensor, "batch_num_nodes n 3"],
+        ],
+        Optional[Float[torch.Tensor, "batch_num_nodes 3"]],
+    ]:
+        node_rep = ScalarVector(node_rep[0], node_rep[1])
+        edge_rep = ScalarVector(edge_rep[0], edge_rep[1])
+
+        # apply GCP normalization (1)
+        if self.pre_norm:
+            node_rep = self.gcp_norm[0](node_rep)
+
+        # forward propagate with interaction module
+        hidden_residual = self.interaction(
+            node_rep=node_rep,
+            edge_rep=edge_rep,
+            cell_rep=cell_rep,
+            edge_index=edge_index,
+            frames=frames,
+            cell_frames=cell_frames,
+            node_mask=node_mask,
+            node_to_sse_mapping=node_to_sse_mapping,
+        )
+
+        # aggregate input and hidden features
+        hidden_residual = ScalarVector(*hidden_residual.concat((node_rep,)))
+
+        # propagate with feedforward layers
+        for module in self.feedforward_network:
+            hidden_residual = module(
+                hidden_residual,
+                edge_index,
+                frames,
+                node_inputs=True,
+                node_mask=node_mask,
+            )
+
+        # apply GCP dropout
+        node_rep = node_rep + self.gcp_dropout[0](hidden_residual)
+
+        # apply GCP normalization (2)
+        if not self.pre_norm:
+            node_rep = self.gcp_norm[0](node_rep)
+
+        # update only unmasked node representations and residuals
+        if node_mask is not None:
+            node_rep = node_rep.mask(node_mask)
+
+        # bypass updating node positions
+        if not self.predict_node_positions:
+            return node_rep, node_pos
+
+        # update node positions
+        node_pos = node_pos + self.derive_x_update(
+            node_rep, edge_index, frames, node_mask=node_mask
+        )
+
+        # update only unmasked node positions
+        if node_mask is not None:
+            node_pos = node_pos * node_mask.float().unsqueeze(-1)
+
+        return node_rep, node_pos
+
+
+
+
 #%%
 
 if __name__ == "__main__":
@@ -337,8 +546,8 @@ if __name__ == "__main__":
     from omegaconf import OmegaConf, DictConfig
     from proteinworkshop.constants import PROJECT_PATH
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     batch: ProteinBatch = torch.load(f'{PROJECT_PATH}/../test/data/sample_batch/sample_batch_for_tcp.pt', weights_only=False).to(device)
+    batch.mask = torch.randn(batch.x.shape[0], device=device) > -.3
     print(batch)
 
 
@@ -374,7 +583,7 @@ if __name__ == "__main__":
             "num_message_layers": 4,
             "message_residual": 0,
             "message_ff_multiplier": 1,
-            "self_message": True
+            "self_message": True,
         },
         "scalar_nonlinearity": "silu",
         "vector_nonlinearity": "silu",
@@ -397,5 +606,53 @@ if __name__ == "__main__":
     print(f'h: {h.shape}, chi: {chi.shape}')
     print(f'e: {e.shape}, xi: {xi.shape}')
     print(f'c: {c.shape}, rho: {rho.shape}')
+    # msg_passing = TCPMessagePassing(
+    #     ScalarVector(128 + 32, 16 + 4),
+    #     ScalarVector(128, 16),
+    #     ScalarVector(32, 4),
+    #     cfg=cfg,
+    #     mp_cfg=cfg.mp_cfg,
+    #     reduce_function="sum",
+    #     use_scalar_message_attention=cfg.use_scalar_message_attention,
+    # )
+    # print(msg_passing)
+    #
+    # msg = msg_passing(
+    #     node_rep=ScalarVector(h, chi),
+    #     edge_rep=ScalarVector(e, xi),
+    #     cell_rep=ScalarVector(c, rho),
+    #     edge_index=batch.edge_index,
+    #     frames=batch.f_ij,
+    #     cell_frames=batch.f_ij_cell,
+    #     node_to_sse_mapping=batch.node_to_sse_mapping,
+    #     node_mask = batch.mask,
+    # )
+    #
+    # print(msg.scalar.shape)
+    # print(msg.vector.shape)
 
+    interactions = TCPInteractions(
+        ScalarVector(128, 16),
+        ScalarVector(32, 4),
+        ScalarVector(64, 8),
+        cfg=cfg,
+        layer_cfg=cfg,
+        dropout=0.0,
+        nonlinearities=cfg.nonlinearities,
+    )
 
+    node_s_v, pos = interactions(
+        node_rep=ScalarVector(h, chi),
+        edge_rep=ScalarVector(e, xi),
+        cell_rep=ScalarVector(c, rho),
+        frames=batch.f_ij,
+        cell_frames=batch.f_ij_cell,
+        edge_index=batch.edge_index,
+        node_mask = batch.mask,
+        node_pos=batch.pos,
+        node_to_sse_mapping=batch.node_to_sse_mapping,
+    )
+    print('>>result')
+    print(node_s_v.scalar.shape)
+    print(node_s_v.vector.shape)
+    print(pos.shape)

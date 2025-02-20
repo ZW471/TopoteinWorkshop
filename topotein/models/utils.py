@@ -37,3 +37,33 @@ def centralize(
         entities_centered = pos - entities_centroid[batch_index]
 
     return entities_centroid, entities_centered
+
+
+def lift_features_with_padding(features: torch.Tensor, neighborhood: torch.Tensor) -> torch.Tensor:
+    """
+    Lifts given features with padding based on the provided neighborhood tensor.
+
+    Given an input feature tensor and a neighborhood mapping, the function creates a new
+    feature tensor where specific elements are lifted (copied) into a larger tensor
+    with padding, according to the neighborhood indices.
+
+    :param features: Tensor containing the feature data, typically in multi-dimensional
+        format. It serves as the source from which features will be lifted
+        based on the neighborhood mapping.
+    :type features: torch.Tensor
+    :param neighborhood: Tensor that defines the mapping for lifting the features. It
+        contains indices that specify how features from the input tensor will
+        be arranged in the output tensor, and its dimensions correspond to
+        the mapping logic.
+    :type neighborhood: torch.Tensor
+    :return: Tensor with lifted features and padding applied, maintaining the necessary
+        alignment as defined by the neighborhood tensor.
+    :rtype: torch.Tensor
+    """
+    lifted_size = neighborhood.size()[0]
+    lifted_features_values = features[neighborhood.indices()[1, neighborhood.values() == 1]]
+    lifted_features = torch.zeros(lifted_size, *features.shape[1:],
+                                  device=features.device,
+                                  dtype=features.dtype)
+    lifted_features[neighborhood.indices()[0]] = lifted_features_values
+    return lifted_features

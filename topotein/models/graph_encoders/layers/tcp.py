@@ -17,6 +17,8 @@ from jaxtyping import Bool, Float, Int64, jaxtyped
 from topotein.models.utils import centralize, lift_features_with_padding
 from omegaconf import DictConfig
 
+from proteinworkshop.models.utils import localize, safe_norm, get_activations
+
 
 class TCP(GCP):
 
@@ -345,13 +347,12 @@ class TCPMessagePassing(GCPMessagePassing):
             node_to_sse_mapping: torch.Tensor = None,
             node_mask: Optional[Bool[torch.Tensor, "batch_num_nodes"]] = None,
     ) -> Float[torch.Tensor, "batch_num_edges message_dim"]:
-        row, col = batch.edge_index
+        row, col = edge_index
         node_vector = node_rep.vector.reshape(
             node_rep.vector.shape[0],
             node_rep.vector.shape[1] * node_rep.vector.shape[2],
             )
         vector_reshaped = ScalarVector(node_rep.scalar, node_vector)
-        print(vector_reshaped.scalar.shape, vector_reshaped.vector.shape)
 
         node_s_row, node_v_row = vector_reshaped.idx(row)
         node_s_col, node_v_col = vector_reshaped.idx(col)
@@ -533,6 +534,7 @@ class TCPInteractions(GCPInteractions):
         if node_mask is not None:
             node_pos = node_pos * node_mask.float().unsqueeze(-1)
 
+        # TODO: also allow cell_rep update
         return node_rep, node_pos
 
 
@@ -542,7 +544,7 @@ class TCPInteractions(GCPInteractions):
 
 if __name__ == "__main__":
     from proteinworkshop.models.graph_encoders.layers.gcp import GCPEmbedding
-    from proteinworkshop.models.utils import localize, safe_norm, get_activations
+    from proteinworkshop.models.utils import localize, get_activations
     from omegaconf import OmegaConf, DictConfig
     from proteinworkshop.constants import PROJECT_PATH
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

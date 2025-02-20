@@ -240,9 +240,10 @@ class GCP(nn.Module):
             device=scalar_rep.device,
         )
 
-    @staticmethod
+    # @staticmethod # this is not static
     @jaxtyped(typechecker=typechecker)
     def scalarize(
+        self,
         vector_rep: Float[torch.Tensor, "batch_num_entities 3 3"],
         edge_index: Int64[torch.Tensor, "2 batch_num_edges"],
         frames: Float[torch.Tensor, "batch_num_edges 3 3"],

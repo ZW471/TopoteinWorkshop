@@ -143,7 +143,7 @@ if __name__ == "__main__":
     batch = featuriser(batch)
     print(batch)
 
-    torch.save(batch, 'sample_batch_for_tcp.pt')
+    torch.save(batch, '../../../test/data/sample_batch/sample_batch_for_tcp.pt')
 
 
 

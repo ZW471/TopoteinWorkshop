@@ -478,7 +478,7 @@ class TCPInteractions(GCPInteractions):
             [GCPDropout(dropout, use_gcp_dropout=layer_cfg.use_gcp_dropout)]
         )
 
-        # build out feedforward (FF) network modules
+        # build out feedforward (FF) network modules for nodes
         hidden_dims = (
             (node_dims.scalar, node_dims.vector)
             if layer_cfg.num_feedforward_layers == 1
@@ -487,8 +487,8 @@ class TCPInteractions(GCPInteractions):
         ff_interaction_layers = [
             ff_GCP(
                 (
-                    node_dims.scalar * 2 + cell_dims.scalar,
-                    node_dims.vector * 2 + cell_dims.vector,
+                    4 * node_dims.scalar + cell_dims.scalar + edge_dims.scalar,
+                    4 * node_dims.vector + cell_dims.vector + edge_dims.vector,
                 ),
                 hidden_dims,
                 nonlinearities=("none", "none")
@@ -501,7 +501,7 @@ class TCPInteractions(GCPInteractions):
 
         interaction_layers = [
             ff_GCP(
-                [hidden_dims[0] + cell_dims.scalar, hidden_dims[1] + cell_dims.vector],
+                [hidden_dims[0] + cell_dims.scalar * 4, hidden_dims[1] + cell_dims.vector * 2],
                 hidden_dims,
                 enable_e3_equivariance=cfg.enable_e3_equivariance,
             )
@@ -512,7 +512,7 @@ class TCPInteractions(GCPInteractions):
         if layer_cfg.num_feedforward_layers > 1:
             ff_interaction_layers.append(
                 ff_GCP(
-                    [hidden_dims[0] + cell_dims.scalar, hidden_dims[1] + cell_dims.vector],
+                    [hidden_dims[0] + cell_dims.scalar * 4, hidden_dims[1] + cell_dims.vector * 2],
                     node_dims,
                     nonlinearities=("none", "none"),
                     feedforward_out=True,
@@ -638,8 +638,18 @@ class TCPInteractions(GCPInteractions):
             reduce="mean",
         ) for rep in edge_rep.vs()])
         cell_hidden_residual = ScalarVector(*hidden_residual_cell.concat((cell_rep, node_rep_agg, edge_rep_agg)))  # c_i || h_i || e_i || m_e
+        cell_hidden_residual_lifted = ScalarVector(*[lift_features_with_padding(res, neighborhood=node_to_sse_mapping) for res in cell_hidden_residual.vs()])
+        hidden_residual_prev = ScalarVector(*hidden_residual.concat((node_rep, cell_hidden_residual_lifted)))  # h_i || m_e || m_c
         # propagate with cell feedforward layers
         for cell_module, node_module in zip(self.cell_ff_network, self.feedforward_network):
+            hidden_residual = node_module(
+                hidden_residual_prev,
+                edge_index,
+                frames,
+                node_inputs=True,
+                node_mask=node_mask,
+            )
+
             cell_hidden_residual = cell_module(
                 cell_hidden_residual,
                 edge_index,
@@ -649,15 +659,9 @@ class TCPInteractions(GCPInteractions):
                 node_pos=node_pos,
                 node_to_sse_mapping=node_to_sse_mapping
             )
+            cell_hidden_residual_lifted = ScalarVector(*[lift_features_with_padding(res, neighborhood=node_to_sse_mapping) for res in cell_hidden_residual.vs()])
+            hidden_residual_prev = ScalarVector(*hidden_residual.concat((cell_hidden_residual_lifted,)))  # h_i || m_e || m_c
 
-            hidden_residual = ScalarVector(*hidden_residual.concat((node_rep, cell_hidden_residual)))  # h_i || m_e || m_c
-            hidden_residual = node_module(
-                hidden_residual,
-                edge_index,
-                frames,
-                node_inputs=True,
-                node_mask=node_mask,
-            )
 
         # cell_hidden_residual = ScalarVector(*[lift_features_with_padding(res, neighborhood=node_to_sse_mapping) for res in cell_hidden_residual.vs()])
 

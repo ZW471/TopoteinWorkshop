@@ -67,3 +67,30 @@ def lift_features_with_padding(features: torch.Tensor, neighborhood: torch.Tenso
                                   dtype=features.dtype)
     lifted_features[neighborhood.indices()[0]] = lifted_features_values
     return lifted_features
+
+
+def map_to_cell_index(edge_index: torch.Tensor, node_to_sse_mapping: torch.Tensor) -> torch.Tensor:
+    """
+    Maps node indices in the edge index of a graph to their corresponding cell indices
+    based on a mapping of nodes to SSE (Secondary Structure Elements).
+
+    This function uses the node-to-SSE mapping to construct a lookup table,
+    which is then used for mapping the edge index from the node level to
+    the cell (SSE) level.
+
+    :param edge_index: A tensor of shape (2, num_edges) where each column
+        represents an edge defined by the indices of its two-connected nodes.
+    :type edge_index: torch.Tensor
+    :param node_to_sse_mapping: A sparse tensor mapping node indices to their
+        associated SSE indices. Should be of shape (num_nodes, num_sse).
+    :type node_to_sse_mapping: torch.Tensor
+    :return: A tensor of shape (2, num_edges) where each column represents an
+        edge transformed to the SSE level. The indices now reference SSE indices
+        instead of node indices.
+    :rtype: torch.Tensor
+    """
+    sse_mapping = node_to_sse_mapping
+    sse_lookup = torch.ones(sse_mapping.size(0), dtype=torch.long, device=sse_mapping.device) * -1
+    sse_lookup[sse_mapping.indices()[0]] = sse_mapping.indices()[1]
+    cell_edge_index = torch.stack([sse_lookup[edge_index[i]] for i in range(2)], dim=0)
+    return cell_edge_index

@@ -137,13 +137,14 @@ if __name__ == "__main__":
     cfg['vector_edge_features'] += ["edge_vectors"]
     # cfg['scalar_sse_features'] += ["sse_vector_norms", "sse_variance_wrt_localized_frame"]
     cfg['vector_sse_features'] += ["sse_vectors"]
+    cfg['directed_edges'] = True
     featuriser = hydra.utils.instantiate(cfg)
     batch: ProteinBatch = torch.load('/Users/dricpro/PycharmProjects/Topotein/test/data/sample_batch/sample_batch_for_tcp.pt', weights_only=False)
     print(batch)
     batch = featuriser(batch)
     print(batch)
 
-    torch.save(batch, '../../../test/data/sample_batch/sample_batch_for_tcp.pt')
+    # torch.save(batch, '../../../test/data/sample_batch/sample_batch_for_tcp.pt')
 
 
 

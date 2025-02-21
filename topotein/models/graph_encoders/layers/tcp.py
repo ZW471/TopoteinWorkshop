@@ -7,15 +7,15 @@ from torch import nn
 
 from proteinworkshop.models.graph_encoders.components.wrappers import ScalarVector
 from proteinworkshop.models.graph_encoders.layers.gcp import GCPEmbedding, GCPLayerNorm, GCP, GCPInteractions, \
-    GCPMessagePassing, get_GCP_with_custom_cfg
+    GCPMessagePassing, get_GCP_with_custom_cfg, GCPDropout
 from typing import Any, Optional, Tuple, Union
 from torch_geometric.data import Batch
 from graphein.protein.tensor.data import ProteinBatch
 import torch
 from jaxtyping import Bool, Float, Int64, jaxtyped
 
-from topotein.models.utils import centralize, lift_features_with_padding
-from omegaconf import DictConfig
+from topotein.models.utils import centralize, lift_features_with_padding, map_to_cell_index
+from omegaconf import DictConfig, OmegaConf
 
 from proteinworkshop.models.utils import localize, safe_norm, get_activations
 
@@ -97,10 +97,7 @@ class TCP(GCP):
                 edge_mask = node_mask[edge_index[0]] & node_mask[edge_index[1]]
                 edge_index = edge_index[:, edge_mask]
 
-            sse_mapping = node_to_sse_mapping
-            sse_lookup = torch.ones(sse_mapping.size(0), dtype=torch.long, device=sse_mapping.device) * -1
-            sse_lookup[sse_mapping.indices()[0]] = sse_mapping.indices()[1]
-            cell_edge_index = torch.stack([sse_lookup[edge_index[i]] for i in range(2)], dim=0)
+            cell_edge_index = map_to_cell_index(edge_index, node_to_sse_mapping)
 
             mask = ((~(cell_edge_index == -1).any(dim=0)) & (cell_edge_index[0] != cell_edge_index[1]))  # mask of columns that don’t contain NaN, and no self-loops
 
@@ -108,6 +105,8 @@ class TCP(GCP):
                 f_e_ij = frames[edge_mask][mask]
             else:
                 f_e_ij = frames[mask]
+
+            # f_e_ij[:, 0, :] = f_e_ij[:, 0, :].abs()
 
             cell_edge_index = cell_edge_index[:, mask]  # c -> c
             edge_index = edge_index[:, mask]  # n -> n
@@ -186,6 +185,8 @@ class TCP(GCP):
             ) for rep_i in [local_scalar_rep_i, local_torque_rep_i]], dim=1)
         else:
             raise ValueError(f"Invalid input type: {input_type}")
+
+
 
     # noinspection PyMethodOverriding
     def forward(
@@ -380,7 +381,6 @@ class TCPMessagePassing(GCPMessagePassing):
         message = edge_rep.concat((
             ScalarVector(node_s_row, node_v_row),
             ScalarVector(node_s_col, node_v_col),
-            # ScalarVector((cell_s_row - cell_s_col).abs(), (cell_v_row - cell_v_col).abs()),
             ScalarVector(cell_s_row, cell_v_row),
             ScalarVector(cell_s_col, cell_v_col),
         ))
@@ -388,6 +388,7 @@ class TCPMessagePassing(GCPMessagePassing):
         message_residual = self.message_fusion[0](
             message, edge_index, frames, node_inputs=False, node_mask=node_mask
         )
+        # edge message passing
         for module in self.message_fusion[1:]:
             # exchange geometric messages while maintaining residual connection to original message
             new_message = module(
@@ -423,14 +424,26 @@ class TCPMessagePassing(GCPMessagePassing):
             cell_frames: Optional[Float[torch.Tensor, "batch_num_cells 3 3"]] = None,
             node_to_sse_mapping: torch.Tensor = None,
             node_mask: Optional[Bool[torch.Tensor, "batch_num_nodes"]] = None,
-    ) -> ScalarVector:
+    ) -> Tuple[ScalarVector, ScalarVector]:
         message = self.message(
             node_rep, edge_rep, cell_rep, edge_index, frames, cell_frames, node_to_sse_mapping, node_mask
         )
-        aggregate = self.aggregate(
+        node_aggregate = self.aggregate(
             message, edge_index, dim_size=node_rep.scalar.shape[0]
         )
-        return ScalarVector.recover(aggregate, self.vector_output_dim)
+
+        cell_edge_index = map_to_cell_index(edge_index, node_to_sse_mapping)
+        mask = ((~(cell_edge_index == -1).any(dim=0)) & (cell_edge_index[0] != cell_edge_index[1]))
+        cell_aggregate = self.aggregate(
+            message[mask], cell_edge_index[:, mask], dim_size=cell_rep.scalar.shape[0]
+        )
+
+        node_aggregate = ScalarVector.recover(node_aggregate, self.vector_output_dim)
+        cell_aggregate = ScalarVector.recover(cell_aggregate, self.vector_output_dim)
+
+
+        return node_aggregate, cell_aggregate
+
 
 
 
@@ -451,6 +464,112 @@ class TCPInteractions(GCPInteractions):
             reduce_function="sum",
             use_scalar_message_attention=layer_cfg.use_scalar_message_attention,
         )
+
+
+        # config instantiations
+        ff_cfg = copy(cfg)
+        ff_cfg.nonlinearities = nonlinearities
+        ff_GCP = partial(get_GCP_with_custom_cfg, cfg=ff_cfg)
+
+        self.gcp_norm = nn.ModuleList(
+            [GCPLayerNorm(node_dims, use_gcp_norm=layer_cfg.use_gcp_norm)]
+        )
+        self.gcp_dropout = nn.ModuleList(
+            [GCPDropout(dropout, use_gcp_dropout=layer_cfg.use_gcp_dropout)]
+        )
+
+        # build out feedforward (FF) network modules
+        hidden_dims = (
+            (node_dims.scalar, node_dims.vector)
+            if layer_cfg.num_feedforward_layers == 1
+            else (4 * node_dims.scalar, 2 * node_dims.vector)
+        )
+        ff_interaction_layers = [
+            ff_GCP(
+                (
+                    node_dims.scalar * 2 + cell_dims.scalar,
+                    node_dims.vector * 2 + cell_dims.vector,
+                ),
+                hidden_dims,
+                nonlinearities=("none", "none")
+                if layer_cfg.num_feedforward_layers == 1
+                else cfg.nonlinearities,
+                feedforward_out=layer_cfg.num_feedforward_layers == 1,
+                enable_e3_equivariance=cfg.enable_e3_equivariance,
+            )
+        ]
+
+        interaction_layers = [
+            ff_GCP(
+                hidden_dims,
+                hidden_dims,
+                enable_e3_equivariance=cfg.enable_e3_equivariance,
+            )
+            for _ in range(layer_cfg.num_feedforward_layers - 2)
+        ]
+        ff_interaction_layers.extend(interaction_layers)
+
+        if layer_cfg.num_feedforward_layers > 1:
+            ff_interaction_layers.append(
+                ff_GCP(
+                    hidden_dims,
+                    node_dims,
+                    nonlinearities=("none", "none"),
+                    feedforward_out=True,
+                    enable_e3_equivariance=cfg.enable_e3_equivariance,
+                )
+            )
+
+        self.feedforward_network = nn.ModuleList(ff_interaction_layers)
+
+        # build out feedforward (FF) network modules for cells
+        ff_cfg = copy(cfg)
+        ff_cfg.nonlinearities = nonlinearities
+        ff_TCP = partial(get_TCP_with_custom_cfg, cfg=ff_cfg)
+        hidden_dims = (
+            (cell_dims.scalar, cell_dims.vector)
+            if layer_cfg.num_feedforward_layers == 1
+            else (4 * cell_dims.scalar, 2 * cell_dims.vector)
+        )
+        ff_interaction_layers = [
+            ff_TCP(
+                (
+                    cell_dims.scalar * 3 + node_dims.scalar + edge_dims.scalar,
+                    cell_dims.vector * 3 + node_dims.vector + edge_dims.vector),
+                hidden_dims,
+                input_type=TCP.CELL_TYPE,
+                nonlinearities=("none", "none")
+                if layer_cfg.num_feedforward_layers == 1
+                else cfg.nonlinearities,
+                feedforward_out=layer_cfg.num_feedforward_layers == 1,
+                enable_e3_equivariance=cfg.enable_e3_equivariance,
+            )
+        ]
+
+        interaction_layers = [
+            ff_TCP(
+                hidden_dims,
+                hidden_dims,
+                input_type=TCP.CELL_TYPE,
+                enable_e3_equivariance=cfg.enable_e3_equivariance,
+            )
+            for _ in range(layer_cfg.num_feedforward_layers - 2)
+        ]
+        ff_interaction_layers.extend(interaction_layers)
+
+        if layer_cfg.num_feedforward_layers > 1:
+            ff_interaction_layers.append(
+                ff_TCP(
+                    hidden_dims,
+                    cell_dims,
+                    input_type=TCP.CELL_TYPE,
+                    nonlinearities=("none", "none"),
+                    feedforward_out=True,
+                    enable_e3_equivariance=cfg.enable_e3_equivariance,
+                )
+            )
+
+        self.cell_ff_network = nn.ModuleList(ff_interaction_layers)
 
     @jaxtyped(typechecker=typechecker)
     def forward(
@@ -488,7 +607,7 @@ class TCPInteractions(GCPInteractions):
             node_rep = self.gcp_norm[0](node_rep)
 
         # forward propagate with interaction module
-        hidden_residual = self.interaction(
+        hidden_residual, hidden_residual_cell = self.interaction(
             node_rep=node_rep,
             edge_rep=edge_rep,
             cell_rep=cell_rep,
@@ -500,8 +619,40 @@ class TCPInteractions(GCPInteractions):
         )
 
         # aggregate input and hidden features
-        hidden_residual = ScalarVector(*hidden_residual.concat((node_rep,)))
+        node_rep_agg = ScalarVector(*[torch_scatter.scatter(
+            rep[node_to_sse_mapping.indices()[0]],
+            node_to_sse_mapping.indices()[1],
+            dim=0,
+            dim_size=node_to_sse_mapping.shape[1],
+            reduce="mean",
+        ) for rep in node_rep.vs()])
+        cell_edge_index = map_to_cell_index(edge_index, node_to_sse_mapping)
+        mask = ((~(cell_edge_index == -1).any(dim=0)) & (cell_edge_index[0] == cell_edge_index[1]))  # mask of columns, select edge inside
 
+        cell_edge_index = cell_edge_index[:, mask]
+        edge_rep_agg = ScalarVector(*[torch_scatter.scatter(
+            rep[mask],
+            cell_edge_index[0],
+            dim=0,
+            dim_size=node_to_sse_mapping.shape[1],
+            reduce="mean",
+        ) for rep in edge_rep.vs()])
+        cell_hidden_residual = ScalarVector(*hidden_residual_cell.concat((cell_rep, node_rep_agg, edge_rep_agg)))  # c_i || h_i || e_i || m_e
+        # propagate with cell feedforward layers
+        for module in self.cell_ff_network:
+            cell_hidden_residual = module(
+                cell_hidden_residual,
+                edge_index,
+                frames=frames,
+                cell_frames=cell_frames,
+                node_mask=node_mask,
+                node_pos=node_pos,
+                node_to_sse_mapping=node_to_sse_mapping
+            )
+
+        cell_hidden_residual = ScalarVector(*[lift_features_with_padding(res, neighborhood=node_to_sse_mapping) for res in cell_hidden_residual.vs()])
+
+        hidden_residual = ScalarVector(*hidden_residual.concat((node_rep, cell_hidden_residual)))  # h_i || m_e || m_c
         # propagate with feedforward layers
         for module in self.feedforward_network:
             hidden_residual = module(
@@ -540,7 +691,19 @@ class TCPInteractions(GCPInteractions):
         return node_rep, node_pos
 
 
+@typechecker
+def get_TCP_with_custom_cfg(
+        input_dims: Any, output_dims: Any, input_type: str, cfg: DictConfig, **kwargs
+):
+    cfg_dict = copy(OmegaConf.to_container(cfg, throw_on_missing=True))
+    cfg_dict["nonlinearities"] = cfg.nonlinearities
+    del cfg_dict["scalar_nonlinearity"]
+    del cfg_dict["vector_nonlinearity"]
 
+    for key in kwargs:
+        cfg_dict[key] = kwargs[key]
+
+    return TCP(input_dims, output_dims, input_type, **cfg_dict)
 
 #%%
 

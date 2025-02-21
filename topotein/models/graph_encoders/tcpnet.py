@@ -341,3 +341,37 @@ if __name__ == "__main__":
 
     result = model(batch)
     print(result)
+    embedding = result["node_embedding"]
+
+        # Step 1: Create a random 3x3 matrix
+    A = torch.randn(3, 3)
+
+    # Step 2: QR decomposition
+    Q, R = torch.linalg.qr(A)
+
+    # Step 3: Ensure proper orientation (optional)
+    # Make determinant = 1 (if necessary, flip a column)
+    if torch.det(Q) < 0:
+        Q[:, 0] = -Q[:, 0]
+
+    batch.pos = torch.matmul(batch.pos, Q)
+    from proteinworkshop import constants
+
+    cfg = OmegaConf.load(
+        constants.PROJECT_PATH
+        / "proteinworkshop"
+        / "config"
+        / "features"
+        / "ca_bb_sse.yaml"
+    )
+    cfg['vector_node_features'] += ['orientation']
+    cfg['vector_edge_features'] += ["edge_vectors"]
+    cfg['vector_sse_features'] += ["sse_vectors"]
+    featuriser = hydra.utils.instantiate(cfg)
+    batch = featuriser(batch)
+    print(batch)
+    result2 = model(batch)
+    embedding2 = result2["node_embedding"]
+    print(embedding)
+    print(embedding2)
+    assert torch.allclose(embedding, embedding2, atol=1e-5)

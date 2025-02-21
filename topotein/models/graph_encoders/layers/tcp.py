@@ -380,7 +380,9 @@ class TCPMessagePassing(GCPMessagePassing):
         message = edge_rep.concat((
             ScalarVector(node_s_row, node_v_row),
             ScalarVector(node_s_col, node_v_col),
-            ScalarVector((cell_s_row - cell_s_col).abs(), (cell_v_row - cell_v_col).abs()),
+            # ScalarVector((cell_s_row - cell_s_col).abs(), (cell_v_row - cell_v_col).abs()),
+            ScalarVector(cell_s_row, cell_v_row),
+            ScalarVector(cell_s_col, cell_v_col),
         ))
 
         message_residual = self.message_fusion[0](
@@ -439,8 +441,8 @@ class TCPInteractions(GCPInteractions):
         super().__init__(node_dims, edge_dims, cfg, layer_cfg, dropout, nonlinearities)
         self.interaction = TCPMessagePassing(
             ScalarVector(
-                node_dims.scalar + cell_dims.scalar // 2,
-                node_dims.vector + cell_dims.vector // 2,
+                node_dims.scalar + cell_dims.scalar,
+                node_dims.vector + cell_dims.vector,
             ),
             node_dims,
             edge_dims,

@@ -5,14 +5,19 @@ from typing import Callable, Dict, Iterable, List, Literal, Optional
 
 import omegaconf
 import pandas as pd
+import requests
 import torch
+import urllib3
 import wget
 from graphein.protein.tensor.dataloader import ProteinDataLoader
 from loguru import logger
 from loguru import logger as log
+from tqdm import tqdm
+from urllib3.exceptions import InsecureRequestWarning
 
 from proteinworkshop.datasets.base import ProteinDataModule, ProteinDataset
 
+urllib3.disable_warnings(InsecureRequestWarning)
 
 def flatten_dir(dir: os.PathLike):
     """
@@ -126,25 +131,62 @@ class FoldClassificationDataModule(ProteinDataModule):
             wget.download(LABELS_URL, out=str(self.data_dir / "class_map.txt"))
 
     def download_structures(self):  # sourcery skip: extract-method
-        """Downloads SCOPe structures."""
-        if not os.path.exists(
-            self.data_dir / "pdbstyle-sel-gs-bib-95-1.75.tgz"
-        ):
-            log.info(
-                f"Downloading SCOPe structures from: {self.scop_url} to {self.data_dir}"
-            )
-            wget.download(self.scop_url, str(self.data_dir))
+        """Downloads SCOPe structures with a progress bar."""
+        tarfile_path = self.data_dir / "pdbstyle-sel-gs-bib-95-1.75.tgz"
+
+        if not os.path.exists(tarfile_path):
+            log.info(f"Downloading SCOPe structures from: {self.scop_url} to {self.data_dir}")
+            try:
+                # Get metadata about the file (like total size for the progress bar)
+                with requests.get(self.scop_url, stream=True, timeout=30) as response:
+                    response.raise_for_status()  # Raise for bad HTTP responses
+                    total = int(response.headers.get('content-length', 0))  # Total file size in bytes
+
+                    # Display a progress bar with tqdm
+                    with open(tarfile_path, "wb") as f, tqdm(
+                            desc="Downloading",
+                            total=total,
+                            unit="B",
+                            unit_scale=True,
+                            unit_divisor=1024,
+                    ) as bar:
+                        for chunk in response.iter_content(chunk_size=1024):  # Download file in chunks
+                            f.write(chunk)
+                            bar.update(len(chunk))  # Update progress bar
+
+            # Fallback: Handle SSL errors
+            except requests.exceptions.SSLError as ssl_error:
+                log.warning("SSL certificate verification failed. Retrying without certificate validation...")
+                log.warning(f"SSL error details: {ssl_error}")
+
+                # Retry download without SSL validation
+                with requests.get(self.scop_url, stream=True, timeout=30, verify=False) as response:
+                    response.raise_for_status()
+                    total = int(response.headers.get('content-length', 0))
+
+                    with open(tarfile_path, "wb") as f, tqdm(
+                            desc="Downloading (Insecure)",
+                            total=total,
+                            unit="B",
+                            unit_scale=True,
+                            unit_divisor=1024,
+                    ) as bar:
+                        for chunk in response.iter_content(chunk_size=1024):
+                            f.write(chunk)
+                            bar.update(len(chunk))
+
+            except requests.exceptions.RequestException as e:
+                log.error(f"Failed to download the file: {e}")
+                raise
+
+            log.info(f"Successfully downloaded to {tarfile_path}")
         else:
-            log.info(
-                f"Found SCOP structure tarfile in: {self.data_dir / 'pdbstyle-sel-gs-bib-95-1.75.tgz'}"
-            )
+            log.info(f"Found SCOP structure tarfile in: {tarfile_path}")
+
         if not os.path.exists(self.structure_dir):
             log.info(f"Extracting tarfile to {self.data_dir}")
-            tar = tarfile.open(
-                str(self.data_dir / "pdbstyle-sel-gs-bib-95-1.75.tgz")
-            )
-            tar.extractall(str(self.data_dir))
-            tar.close()
+            with tarfile.open(tarfile_path) as tar:
+                tar.extractall(str(self.data_dir))
             log.info("Flattening directory")
             flatten_dir(self.structure_dir)
         else:

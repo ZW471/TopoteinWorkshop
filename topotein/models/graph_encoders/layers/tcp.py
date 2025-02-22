@@ -534,8 +534,8 @@ class TCPInteractions(GCPInteractions):
         ff_interaction_layers = [
             ff_TCP(
                 (
-                    cell_dims.scalar * 3 + node_dims.scalar + edge_dims.scalar,
-                    cell_dims.vector * 3 + node_dims.vector + edge_dims.vector),
+                    cell_dims.scalar + node_dims.scalar * 2 + edge_dims.scalar,
+                    cell_dims.vector + node_dims.vector * 2+ edge_dims.vector),
                 hidden_dims,
                 input_type=TCP.CELL_TYPE,
                 nonlinearities=("none", "none")
@@ -766,7 +766,7 @@ if __name__ == "__main__":
         cell_input_dims=[15, 8],
         node_hidden_dims=[128, 16],
         edge_hidden_dims=[32, 4],
-        cell_hidden_dims=[64, 8],
+        cell_hidden_dims=[128, 16],
         cfg=cfg
     )
     (h, chi), (e, xi), (c, rho) = tcp_embedding(batch)
@@ -801,7 +801,7 @@ if __name__ == "__main__":
     interactions = TCPInteractions(
         ScalarVector(128, 16),
         ScalarVector(32, 4),
-        ScalarVector(64, 8),
+        ScalarVector(128, 16),
         cfg=cfg,
         layer_cfg=cfg,
         dropout=0.0,

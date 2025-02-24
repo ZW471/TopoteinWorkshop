@@ -19,10 +19,11 @@ from proteinworkshop.models.utils import (
     centralize,
     decentralize,
     get_aggregation,
-    localize,
+    localize, get_activations,
 )
 from proteinworkshop.types import EncoderOutput
-from topotein.models.graph_encoders.layers.tcp import TCPEmbedding, TCPInteractions
+from topotein.models.graph_encoders.layers.tcp import TCPEmbedding, TCPInteractions, TCP
+from topotein.models.utils import lift_features_with_padding
 
 
 class TCPNetModel(GCPNetModel):
@@ -86,7 +87,10 @@ class TCPNetModel(GCPNetModel):
         model_cfg = kwargs["model_cfg"]
         layer_cfg = kwargs["layer_cfg"]
 
+        self.activation = module_cfg.scalar_nonlinearity
+
         self.predict_node_pos = module_cfg.predict_node_positions
+        self.predict_cell_rep = module_cfg.predict_cell_rep
         self.predict_node_rep = module_cfg.predict_node_rep
 
         # Feature dimensionalities
@@ -145,6 +149,30 @@ class TCPNetModel(GCPNetModel):
                 ]
             )
 
+        if self.predict_cell_rep:
+            # Predictions
+            self.invariant_cell_projection = nn.ModuleList(
+                [
+                    gcp.GCPLayerNorm(self.cell_dims),
+                    TCP(
+                        # Note: `GCPNet` defaults to providing SE(3) equivariance
+                        # It is possible to provide E(3) equivariance by instead setting `module_cfg.enable_e3_equivariance=true`
+                        self.cell_dims,
+                        (self.cell_dims.scalar, 0),
+                        input_type=TCP.CELL_TYPE,
+                        nonlinearities=tuple(module_cfg.nonlinearities),
+                        scalar_gate=module_cfg.scalar_gate,
+                        vector_gate=module_cfg.vector_gate,
+                        enable_e3_equivariance=module_cfg.enable_e3_equivariance,
+                    ),
+                ]
+            )
+
+        self.cell_out_to_node = nn.Sequential(
+            nn.Linear(self.cell_dims.scalar, self.node_dims.scalar),
+            get_activations(self.activation),
+        )
+
         # Global pooling/readout function
         self.readout = get_aggregation(
             module_cfg.pool
@@ -182,14 +210,14 @@ class TCPNetModel(GCPNetModel):
         # Craft complete local frames corresponding to each edge
         batch.f_ij = self.localize(batch.pos, batch.edge_index)
         batch.f_ij_cell = self.localize(batch.pos, batch.sse_cell_index_simple)
-        batch.node_to_sse_mapping = batch.N2_0.T.coalesce()
+        batch.node_to_sse_mapping = batch.N0_2
 
         # Embed node and edge input features
         (h, chi), (e, xi), (c, rho) = self.tcp_embedding(batch)
 
         # Update graph features using a series of geometric message-passing layers
         for layer in self.interaction_layers:
-            (h, chi), batch.pos = layer(
+            (h, chi), batch.pos, (c, rho) = layer(
                 node_rep=ScalarVector(h, chi),
                 edge_rep=ScalarVector(e, xi),
                 cell_rep=ScalarVector(c, rho),
@@ -218,6 +246,7 @@ class TCPNetModel(GCPNetModel):
                     batch, batch_index=batch.batch
                 )
                 batch.f_ij = self.localize(centralized_node_pos, batch.edge_index)
+                batch.f_ij_cell = self.localize(centralized_node_pos, batch.sse_cell_index_simple)
             encoder_outputs["pos"] = batch.pos  # (n, 3) -> (batch_size, 3)
 
         # Summarize intermediate node representations as final predictions
@@ -230,9 +259,30 @@ class TCPNetModel(GCPNetModel):
                 out, batch.edge_index, batch.f_ij, node_inputs=True
             )  # e.g., GCP((h, chi)) -> h'
 
+        cell_out = c
+        if self.predict_node_rep:
+            cell_out = self.invariant_cell_projection[0](
+                ScalarVector(c, rho)
+            )  # e.g., GCPLayerNorm()
+            cell_out = self.invariant_cell_projection[1](
+                cell_out, batch.edge_index,
+                frames=batch.f_ij,
+                cell_frames=batch.f_ij_cell,
+                node_mask=getattr(batch, "mask", None),
+                node_pos=batch.pos,
+                node_to_sse_mapping=batch.node_to_sse_mapping
+            )  # e.g., GCP((h, chi)) -> h'
+
         encoder_outputs["node_embedding"] = out
+        encoder_outputs["cell_embedding"] = cell_out
+
+        cell_out_lifted = lift_features_with_padding(
+            self.cell_out_to_node(cell_out),
+            batch.node_to_sse_mapping
+        )
+
         encoder_outputs["graph_embedding"] = self.readout(
-            out, batch.batch
+            out + cell_out_lifted, batch.batch
         )  # (n, d) -> (batch_size, d)
         return EncoderOutput(encoder_outputs)
 
@@ -243,6 +293,7 @@ if __name__ == "__main__":
     from proteinworkshop.constants import PROJECT_PATH
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch: ProteinBatch = torch.load(f'{PROJECT_PATH}/../test/data/sample_batch/sample_batch_for_tcp.pt', weights_only=False).to(device)
+    batch.N0_2 = batch.N2_0.T.coalesce()
     batch.mask = torch.randn(batch.x.shape[0], device=device) > -.3
     print(batch)
 
@@ -253,7 +304,7 @@ if __name__ == "__main__":
             "vector_node_features": ["orientation"],
             "vector_edge_features": ["edge_vectors"],
             "vector_cell_features": ["cell_vectors"],
-            "neighborhoods": ["N2_0 = B2.T @ B1.T / 2"],
+            "neighborhoods": ["N0_2 = B1 @ B2 / 2"],
             # (Optional placeholders for scalar features if needed by resolve_feature_config_dim)
             "scalar_node_features": None,
             "scalar_edge_features": None,
@@ -288,6 +339,7 @@ if __name__ == "__main__":
             "default_bottleneck": 4,
             "predict_node_positions": False,  # input node positions will not be updated
             "predict_node_rep": True,         # final projection of node features will be performed
+            "predict_cell_rep": True,         # final projection of node features will be performed
             "node_positions_weight": 1.0,
             "update_positions_with_vector_sum": False,
             "enable_e3_equivariance": False,

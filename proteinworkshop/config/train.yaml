@@ -15,7 +15,7 @@ defaults:
   - transforms: default
   - callbacks: default
   - optimiser: adam
-  - scheduler: none
+  - scheduler: linear_warmup_cosine_decay
   - trainer: gpu
   - extras: default
   - hydra: default

@@ -474,6 +474,11 @@ class TCPInteractions(GCPInteractions):
         self.gcp_norm = nn.ModuleList(
             [GCPLayerNorm(node_dims, use_gcp_norm=layer_cfg.use_gcp_norm)]
         )
+
+        self.gcp_norm_cell = nn.ModuleList(
+            [GCPLayerNorm(cell_dims, use_gcp_norm=layer_cfg.use_gcp_norm)]
+        )
+
         self.gcp_dropout = nn.ModuleList(
             [GCPDropout(dropout, use_gcp_dropout=layer_cfg.use_gcp_dropout)]
         )
@@ -594,10 +599,14 @@ class TCPInteractions(GCPInteractions):
             node_to_sse_mapping: torch.Tensor = None,
     ) -> Tuple[
         Tuple[
-            Float[torch.Tensor, "batch_num_nodes hidden_dim"],
+            Float[torch.Tensor, "batch_num_nodes node_hidden_dim"],
             Float[torch.Tensor, "batch_num_nodes n 3"],
         ],
         Optional[Float[torch.Tensor, "batch_num_nodes 3"]],
+        Tuple[
+            Float[torch.Tensor, "batch_num_cells cell_hidden_dim"],
+            Float[torch.Tensor, "batch_num_cells c 3"],
+        ]
     ]:
         node_rep = ScalarVector(node_rep[0], node_rep[1])
         edge_rep = ScalarVector(edge_rep[0], edge_rep[1])
@@ -650,6 +659,7 @@ class TCPInteractions(GCPInteractions):
                 node_to_sse_mapping=node_to_sse_mapping
             )
 
+        cell_rep = cell_rep + self.gcp_dropout[0](cell_hidden_residual)
         cell_hidden_residual = ScalarVector(*[lift_features_with_padding(res, neighborhood=node_to_sse_mapping) for res in cell_hidden_residual.vs()])
 
         hidden_residual = ScalarVector(*hidden_residual.concat((node_rep, cell_hidden_residual)))  # h_i || m_e || m_c
@@ -669,6 +679,7 @@ class TCPInteractions(GCPInteractions):
         # apply GCP normalization (2)
         if not self.pre_norm:
             node_rep = self.gcp_norm[0](node_rep)
+            cell_rep = self.gcp_norm_cell[0](cell_rep)
 
         # update only unmasked node representations and residuals
         if node_mask is not None:
@@ -676,7 +687,7 @@ class TCPInteractions(GCPInteractions):
 
         # bypass updating node positions
         if not self.predict_node_positions:
-            return node_rep, node_pos
+            return node_rep, node_pos, cell_rep
 
         # update node positions
         node_pos = node_pos + self.derive_x_update(
@@ -688,7 +699,7 @@ class TCPInteractions(GCPInteractions):
             node_pos = node_pos * node_mask.float().unsqueeze(-1)
 
         # TODO: also allow cell_rep update
-        return node_rep, node_pos
+        return node_rep, node_pos, cell_rep
 
 
 @typechecker

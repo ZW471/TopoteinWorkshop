@@ -11,3 +11,12 @@
  - pass the cell type and features in the ./config/features/ca_sc_sse.yaml
 
 # Adding my own model
+
+
+# Launcher
+pip install hydra-submitit-launcher
+pip install submitit
+
+# Scheduler
+pip install flash lightning-flash torchmetrics>=1.2.0,2.0.0 pytorch-lightning>=2.0.7,<3.0.0
+ jsonargparse-4.9.0 lightning-flash-0.8.1 pytorch-lightning-2.5.0.post0 torchmetrics-1.6.1

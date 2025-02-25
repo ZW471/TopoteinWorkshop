@@ -7,6 +7,7 @@ features:
   vector_sse_features: ["sse_vectors"]
   neighborhoods:
     - N0_2 = B1 @ B2 / 2
+  directed_edges: True
 # global config #
 num_layers: 6 # Number of layers in the model
 emb_dim: 128

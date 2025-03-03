@@ -18,7 +18,7 @@ def sse_onehot(protein_batch: ProteinBatch) -> torch.Tensor:
     return torch.cat(protein_batch.protein_apply(annotate_protein_sses_pydssp))
 
 @typechecker
-def get_sse_cell_group(sse_batch: torch.Tensor, protein_batch: torch.Tensor, num_of_classes: int = 3, minimal_group_size: int = 3):
+def get_sse_cell_group(sse_batch: torch.Tensor, protein_batch: torch.Tensor, num_of_classes: int = 3, minimal_group_size: int = 3, simple_version: bool = False):
     """
     sse_batch: A (b, num_of_classes) tensor of one-hot rows.
     protein_batch: A (b,) tensor indicating the protein each SSE belongs to.
@@ -37,7 +37,7 @@ def get_sse_cell_group(sse_batch: torch.Tensor, protein_batch: torch.Tensor, num
         }
     """
     # --- Helper function to find consecutive runs of True in a 1D boolean mask ---
-    def find_consecutive_true_indices(mask: torch.Tensor, least_consecutive_length: int = 3):
+    def find_consecutive_true_indices(mask: torch.Tensor, least_consecutive_length: int = 3, simple_version: bool = False):
         """
         mask: (b,) boolean tensor.
         returns: A list of lists, each sub-list is a consecutive run of indices where mask == True.
@@ -69,7 +69,10 @@ def get_sse_cell_group(sse_batch: torch.Tensor, protein_batch: torch.Tensor, num
         for s, e in zip(starts_list, ends_list):
             if e - s < least_consecutive_length:  # Ensure group meets the minimum size
                 continue
-            groups.append(tuple(range(s, e + 1)))
+            if simple_version:
+                groups.append((s, e))
+            else:
+                groups.append(tuple(range(s, e + 1)))
         return groups
 
     # --- Main logic: for each class, find where sse_batch == one-hot vector of that class ---
@@ -92,7 +95,7 @@ def get_sse_cell_group(sse_batch: torch.Tensor, protein_batch: torch.Tensor, num
             combined_mask = mask_c & protein_mask  # Combine with the class mask
 
             # Find all consecutive runs of True in the combined mask
-            groups_c = find_consecutive_true_indices(combined_mask, least_consecutive_length=minimal_group_size)
+            groups_c = find_consecutive_true_indices(combined_mask, least_consecutive_length=minimal_group_size, simple_version=simple_version)
             group_list.extend(groups_c)
 
         all_groups[c] = group_list

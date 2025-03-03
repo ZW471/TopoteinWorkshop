@@ -19,6 +19,9 @@ from lightning.pytorch.loggers import Logger
 from loguru import logger as log
 from omegaconf import DictConfig
 
+import wandb
+import pathlib
+
 from proteinworkshop import (
     constants,
     register_custom_omegaconf_resolvers,
@@ -182,6 +185,13 @@ def train_model(
         trainer.fit(
             model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path")
         )
+        # Log profiler trace
+        if isinstance(trainer.profiler, L.pytorch.profilers.PyTorchProfiler):
+            profile_art = wandb.Artifact("trace", type="profile")
+            for trace in pathlib.Path(trainer.profiler.dirpath).glob("*.pt.trace.json"):
+                profile_art.add_file(trace)
+            profile_art.save()
+
 
     if cfg.get("test"):
         log.info("Starting testing!")

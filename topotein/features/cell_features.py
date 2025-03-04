@@ -13,6 +13,7 @@ import toponetx as tnx
 from proteinworkshop.features.utils import _normalize
 from torch.nn.utils.rnn import pad_sequence
 from proteinworkshop.models.utils import localize, centralize
+from topotein.features.topotein_complex import TopoteinComplex
 
 CELL_FEATURES: List[str] = [
     "cell_size",
@@ -98,7 +99,7 @@ def compute_vector_cell_features(
 
 
 @jaxtyped(typechecker=typechecker)
-def compute_cell_sizes(cell_complex: tnx.CellComplex) -> torch.Tensor:
+def compute_cell_sizes(cell_complex: Union[tnx.CellComplex, TopoteinComplex]) -> torch.Tensor:
     """
     Compute the sizes of all cells within the provided cell complex.
 
@@ -113,7 +114,11 @@ def compute_cell_sizes(cell_complex: tnx.CellComplex) -> torch.Tensor:
         cell complex.
     :rtype: torch.Tensor
     """
-    return torch.tensor(list(map(cell_complex.size, iter(cell_complex.cells))))
+    if type(cell_complex) == tnx.CellComplex:
+
+        return torch.tensor(list(map(cell_complex.size, iter(cell_complex.cells))))
+    elif type(cell_complex) == TopoteinComplex:
+        return cell_complex.laplacian_matrix(rank=2, via_rank=0).values()
 
 
 @jaxtyped(typechecker=typechecker)

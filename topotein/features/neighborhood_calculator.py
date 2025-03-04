@@ -142,7 +142,7 @@ class MatrixTransformer(Transformer):
             raise ValueError(f"Unknown function: {func_name}")
 
 
-class NeighborhoodCaculator():
+class NeighborhoodCaculator:
     def __init__(self, batch, signed=False, use_cache=True):
         self.transformer = MatrixTransformer(batch.sse_cell_complex, signed=signed, use_cache=use_cache, device=batch.x.device)
         self.parser = Lark(grammar, parser="lalr")

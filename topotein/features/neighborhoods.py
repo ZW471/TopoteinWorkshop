@@ -1,10 +1,12 @@
 import torch
 
-from topotein.features.neighborhood_caculator import NeighborhoodCaculator
+from topotein.features.neighborhood_calculator import NeighborhoodCaculator
+from topotein.features.topotein_neighborhood_calculator import TopoteinNeighborhoodCalculator
 
 
 def compute_neighborhoods(batch, neighborhoods):
-    nc = NeighborhoodCaculator(batch)
+    # nc = NeighborhoodCaculator(batch)
+    nc = TopoteinNeighborhoodCalculator(batch.sse_cell_complex)
     return nc.calc_equations(neighborhoods)
 
 

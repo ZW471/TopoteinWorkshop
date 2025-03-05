@@ -63,6 +63,7 @@ class TopoteinFeaturiser(ProteinFeaturiser):
                 batch.sse, batch.sse_cell_index_simple, batch.sse_cell_complex = compute_sses_pure_torch(
                     batch, self.sse_types
                 )
+                batch.sse = torch.nn.functional.one_hot(batch.sse, num_classes=len(self.sse_types))
 
             else:
                 # sse: onehot type of sse for groups
@@ -128,7 +129,9 @@ class TopoteinFeaturiser(ProteinFeaturiser):
         return batch
 
     def __repr__(self) -> str:
-        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features_after_sse}, vector_edge_features={self.vector_edge_features_after_sse}, cell_types={self.sse_types}, scalar_cell_features={self.scalar_sse_features}, vector_cell_features={self.vector_sse_features}, neighborhoods={self.neighborhoods}, directed_edges={self.directed_edges}, pure_torch={self.pure_torch})"
+        return f"TopoteinFeaturiser(representation={self.representation}, scalar_node_features={self.scalar_node_features}, vector_node_features={self.vector_node_features}, \
+            edge_types={self.edge_types}, scalar_edge_features={self.scalar_edge_features if self.pure_torch else self.scalar_edge_features_after_sse}, vector_edge_features={self.vector_edge_features if self.pure_torch else self.vector_edge_features_after_sse}, cell_types={self.sse_types}, \
+            scalar_cell_features={self.scalar_sse_features}, vector_cell_features={self.vector_sse_features}, neighborhoods={self.neighborhoods}, directed_edges={self.directed_edges}, pure_torch={self.pure_torch})"
 
 
 #%%
@@ -152,11 +155,14 @@ if __name__ == "__main__":
     # cfg['scalar_sse_features'] += ["sse_vector_norms", "sse_variance_wrt_localized_frame"]
     cfg['vector_sse_features'] += ["sse_vectors"]
     cfg['directed_edges'] = True
+    cfg['neighborhoods'] = ['N0_2 = B0_2']
     # cfg['pure_torch'] = True
     featuriser = hydra.utils.instantiate(cfg)
-    batch: ProteinBatch = torch.load('/Users/dricpro/PycharmProjects/Topotein/test/data/sample_batch/sample_batch_unfeaturised.pt', weights_only=False)
+    batch: ProteinBatch = torch.load('./test/data/sample_batch/sample_batch_unfeaturised.pt', weights_only=False)
     print(batch)
-
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    batch.to(device)
+    featuriser.to(device)
     tik = time.time()
     batch = featuriser(batch)
     print(batch, f'featurising time: {time.time() - tik}s')

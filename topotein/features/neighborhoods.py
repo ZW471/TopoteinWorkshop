@@ -2,11 +2,13 @@ import torch
 
 from topotein.features.neighborhood_calculator import NeighborhoodCaculator
 from topotein.features.topotein_neighborhood_calculator import TopoteinNeighborhoodCalculator
-
+from topotein.features.topotein_complex import TopoteinComplex
 
 def compute_neighborhoods(batch, neighborhoods):
-    # nc = NeighborhoodCaculator(batch)
-    nc = TopoteinNeighborhoodCalculator(batch.sse_cell_complex)
+    if isinstance(batch.sse_cell_complex, TopoteinComplex):
+        nc = TopoteinNeighborhoodCalculator(batch.sse_cell_complex)
+    else:
+        nc = NeighborhoodCaculator(batch)
     return nc.calc_equations(neighborhoods)
 
 

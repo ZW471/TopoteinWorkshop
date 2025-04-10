@@ -19,7 +19,7 @@ parameters:
     value: 0.0001
 
   features:
-    values: [ca_bb]
+    values: [ca_bb_sse]
 
   scheduler:
     values: [plateau]
@@ -29,6 +29,9 @@ parameters:
 
   +aux_task:
     values: [none]
+
+  trainer:
+    value: cpu
 
   trainer.max_epochs:
     value: 150

@@ -178,7 +178,7 @@ def variance_wrt_localized_frame(batch: ProteinBatch) -> torch.Tensor:
     n_segments = batch.sse_cell_index_simple.shape[1]
     for i in range(n_segments):
         start = batch.sse_cell_index_simple[0, i]
-        end = batch.sse_cell_index_simple[1, i]
+        end = batch.sse_cell_index_simple[1, i] + 1
         # Process the segment
         seg_result = (X_c[start:end, :] @ frames[i].T).var(dim=0)
         results.append(seg_result)
@@ -204,8 +204,8 @@ def vector_features(batch: ProteinBatch) -> list[torch.Tensor]:
     """
 
     device = batch.pos.device
-    node_idx_in_sse = torch.cat([torch.arange(s, e, device=device) for s, e in batch.sse_cell_index_simple.T], dim=-1)
-    sse_batch = torch.cat([torch.ones(e - s, device=device) * idx for idx, (s, e) in enumerate(batch.sse_cell_index_simple.T)], dim=-1).long()
+    node_idx_in_sse = torch.cat([torch.arange(s, e + 1, device=device) for s, e in batch.sse_cell_index_simple.T], dim=-1)
+    sse_batch = torch.cat([torch.ones(e - s + 1, device=device) * idx for idx, (s, e) in enumerate(batch.sse_cell_index_simple.T)], dim=-1).long()
     batch['pos_in_sse'] = batch.pos[node_idx_in_sse]
     com_pos, _ = centralize(batch, key='pos_in_sse', batch_index=sse_batch)
     X = batch.pos

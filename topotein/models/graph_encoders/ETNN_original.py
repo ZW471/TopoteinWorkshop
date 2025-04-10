@@ -86,7 +86,7 @@ class ETNNModel(torch.nn.Module):
             N0_0_via_2 = batch.N0_0_via_2
 
         def cell_list(i, format="list"):
-            cell_index_2 = [torch.tensor(inner_list, device=device) for inner_list in batch.sse_cell_index]
+            cell_index_2 = [torch.arange(inner_list[0], inner_list[1] + 1, device=device) for inner_list in batch.sse_cell_index_simple.T]
             cell_index_1 = list(batch.edge_index.T)
             cell_index_0 = list(torch.arange(0, batch.x.shape[0], device=device).T.unsqueeze(1))
             list_of_cells = [

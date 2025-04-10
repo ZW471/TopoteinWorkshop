@@ -1,0 +1,45 @@
+program: proteinworkshop/train.py
+method: grid
+name: topotein_baseline_fold
+metric: # Does not matter, as we are using sweep to run the experiment.
+  goal: minimize
+  name: val/loss/total
+
+parameters:
+  task:
+    values: [multiple_graph_classification]
+
+  dataset:
+    values: [fold_family, fold_superfamily, fold_fold]
+
+  encoder:
+    values: [tcpnet]
+
+  optimiser.optimizer.lr:
+    value: 0.0001
+
+  features:
+    values: [ca_bb]
+
+  scheduler:
+    values: [plateau]
+
+  extras.enforce_tags:
+    value: False
+
+  +aux_task:
+    values: [none]
+
+  trainer.max_epochs:
+    value: 150
+
+  test:
+    value: True
+
+command:
+  - ${env}
+  - HYDRA_FULL_ERROR=1
+  - WANDB_START_METHOD=thread
+  - python
+  - ${program}
+  - ${args_no_hyphens}

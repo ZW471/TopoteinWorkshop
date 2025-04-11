@@ -8,7 +8,7 @@ import numpy as np
 import omegaconf
 import torch
 import umap
-import umap.plot
+# import umap.plot
 from beartype.typing import Any, Dict, List, Optional
 from loguru import logger as log
 from matplotlib.lines import Line2D
@@ -92,7 +92,7 @@ def visualise(cfg: omegaconf.DictConfig):
     # Load weights
     # We only want to load weights
     log.info(f"Loading weights from checkpoint {cfg.ckpt_path}...")
-    state_dict = torch.load(cfg.ckpt_path)["state_dict"]
+    state_dict = torch.load(cfg.ckpt_path, map_location=cfg.trainer.accelerator)["state_dict"]
 
     if cfg.finetune.encoder.load_weights:
         encoder_weights = collections.OrderedDict()
@@ -198,10 +198,13 @@ def visualise(cfg: omegaconf.DictConfig):
         clustering_label_indices = clustering_labels
 
     # Report Dunn index of clustering
-    dunn_index_data = torch.from_numpy(umap_embeddings)
-    dunn_index_labels = torch.from_numpy(clustering_label_indices)
-    clustering_dunn_index = dunn_index(dunn_index_data, dunn_index_labels)
-    log.info(f"Dunn index of clustering: {clustering_dunn_index.item()}")
+    try:
+        dunn_index_data = torch.from_numpy(umap_embeddings)
+        dunn_index_labels = torch.from_numpy(clustering_label_indices)
+        clustering_dunn_index = dunn_index(dunn_index_data, dunn_index_labels)
+        log.info(f"Dunn index of clustering: {clustering_dunn_index.item()}")
+    except TypeError as e:
+        log.warning(f"Unable to compute Dunn index: {e}")
 
     # Plot UMAP clustering
     fig = plt.figure(figsize=(10, 10))

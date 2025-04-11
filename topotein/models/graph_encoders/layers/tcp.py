@@ -445,25 +445,34 @@ class TCPMessagePassing(GCPMessagePassing):
         return node_aggregate, cell_aggregate
 
 
-
-
-
 class TCPInteractions(GCPInteractions):
     def __init__(self, node_dims: ScalarVector, edge_dims: ScalarVector, cell_dims: ScalarVector, cfg: DictConfig, layer_cfg: DictConfig,
                  dropout: float = 0.0, nonlinearities: Optional[Tuple[Any, Any]] = None):
         super().__init__(node_dims, edge_dims, cfg, layer_cfg, dropout, nonlinearities)
-        self.interaction = TCPMessagePassing(
-            ScalarVector(
-                node_dims.scalar + cell_dims.scalar,
-                node_dims.vector + cell_dims.vector,
-            ),
-            node_dims,
-            edge_dims,
-            cfg=cfg,
-            mp_cfg=layer_cfg.mp_cfg,
-            reduce_function="sum",
-            use_scalar_message_attention=layer_cfg.use_scalar_message_attention,
-        )
+        self.gcpnet_compatibility = cfg.layer_cfg.get('gcpnet_compatibility', False)
+        if self.gcpnet_compatibility:
+            self.interaction = GCPMessagePassing(
+                node_dims,
+                node_dims,
+                edge_dims,
+                cfg=cfg,
+                mp_cfg=layer_cfg.mp_cfg,
+                reduce_function="sum",
+                use_scalar_message_attention=layer_cfg.use_scalar_message_attention,
+            )
+        else:
+            self.interaction = TCPMessagePassing(
+                ScalarVector(
+                    node_dims.scalar + cell_dims.scalar,
+                    node_dims.vector + cell_dims.vector,
+                ),
+                node_dims,
+                edge_dims,
+                cfg=cfg,
+                mp_cfg=layer_cfg.mp_cfg,
+                reduce_function="sum",
+                use_scalar_message_attention=layer_cfg.use_scalar_message_attention,
+            )
 
 
         # config instantiations
@@ -487,8 +496,8 @@ class TCPInteractions(GCPInteractions):
         ff_interaction_layers = [
             ff_GCP(
                 (
-                    node_dims.scalar * 2 + cell_dims.scalar,
-                    node_dims.vector * 2 + cell_dims.vector,
+                    node_dims.scalar * 2 + (cell_dims.scalar if not self.gcpnet_compatibility else 0),
+                    node_dims.vector * 2 + (cell_dims.vector if not self.gcpnet_compatibility else 0),
                 ),
                 hidden_dims,
                 nonlinearities=("none", "none")
@@ -535,7 +544,7 @@ class TCPInteractions(GCPInteractions):
             ff_TCP(
                 (
                     cell_dims.scalar + node_dims.scalar * 2 + edge_dims.scalar,
-                    cell_dims.vector + node_dims.vector * 2+ edge_dims.vector),
+                    cell_dims.vector + node_dims.vector * 2 + edge_dims.vector),
                 hidden_dims,
                 input_type=TCP.CELL_TYPE,
                 nonlinearities=("none", "none")
@@ -607,16 +616,24 @@ class TCPInteractions(GCPInteractions):
             node_rep = self.gcp_norm[0](node_rep)
 
         # forward propagate with interaction module
-        hidden_residual, hidden_residual_cell = self.interaction(
-            node_rep=node_rep,
-            edge_rep=edge_rep,
-            cell_rep=cell_rep,
-            edge_index=edge_index,
-            frames=frames,
-            cell_frames=cell_frames,
-            node_mask=node_mask,
-            node_to_sse_mapping=node_to_sse_mapping,
-        )
+        if self.gcpnet_compatibility:
+            hidden_residual = self.interaction(
+                node_rep, edge_rep, edge_index, frames, node_mask=node_mask
+            )
+
+            # aggregate input and hidden features
+            hidden_residual = ScalarVector(*hidden_residual.concat((node_rep,)))
+        else:
+            hidden_residual, hidden_residual_cell = self.interaction(
+                node_rep=node_rep,
+                edge_rep=edge_rep,
+                cell_rep=cell_rep,
+                edge_index=edge_index,
+                frames=frames,
+                cell_frames=cell_frames,
+                node_mask=node_mask,
+                node_to_sse_mapping=node_to_sse_mapping,
+            )
 
         # aggregate input and hidden features
         node_rep_agg = ScalarVector(*[torch_scatter.scatter(
@@ -637,7 +654,11 @@ class TCPInteractions(GCPInteractions):
             dim_size=node_to_sse_mapping.shape[1],
             reduce="mean",
         ) for rep in edge_rep.vs()])
-        cell_hidden_residual = ScalarVector(*hidden_residual_cell.concat((cell_rep, node_rep_agg, edge_rep_agg)))  # c_i || h_i || e_i || m_e
+
+        if self.gcpnet_compatibility:
+            cell_hidden_residual = ScalarVector(*node_rep_agg.concat((edge_rep_agg, cell_rep)))  # c_i || h_i || e_i || m_e
+        else:
+            cell_hidden_residual = ScalarVector(*hidden_residual_cell.concat((cell_rep, node_rep_agg, edge_rep_agg)))  # c_i || h_i || e_i || m_e
         # propagate with cell feedforward layers
         for module in self.cell_ff_network:
             cell_hidden_residual = module(
@@ -650,6 +671,7 @@ class TCPInteractions(GCPInteractions):
                 node_to_sse_mapping=node_to_sse_mapping
             )
 
+        # TODO: if also make this compatible with GCPNet, cell features are not used at all to inform edge and node features
         cell_hidden_residual = ScalarVector(*[lift_features_with_padding(res, neighborhood=node_to_sse_mapping) for res in cell_hidden_residual.vs()])
 
         hidden_residual = ScalarVector(*hidden_residual.concat((node_rep, cell_hidden_residual)))  # h_i || m_e || m_c

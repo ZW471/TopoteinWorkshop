@@ -114,7 +114,7 @@ def get_frames(X_src, X_dst, normalize=True):
     c_vec = torch.linalg.cross(a_vec, b_vec)
     return torch.stack([a_vec, b_vec, c_vec], dim=1)
 
-def localize(batch, rank, node_mask=None, normalize=True):
+def localize(batch, rank, node_mask=None, norm_pos_diff=True):
     frames = (
             torch.ones((batch.sse_cell_complex._get_size_of_rank(rank), 3, 3), device=batch.pos.device)
             * torch.inf
@@ -123,31 +123,31 @@ def localize(batch, rank, node_mask=None, normalize=True):
         if node_mask is not None:
             dst_node_mask = node_mask[batch.edge_index[1]]
             neighbor_com = get_com(batch.pos[batch.edge_index[1]][dst_node_mask], batch.edge_index[0][dst_node_mask])
-            frames[node_mask] = get_frames(X_src=batch.pos[node_mask], X_dst=neighbor_com[node_mask], normalize=normalize)
+            frames[node_mask] = get_frames(X_src=batch.pos[node_mask], X_dst=neighbor_com[node_mask], normalize=norm_pos_diff)
         else:
             neighbor_com = get_com(batch.pos[batch.edge_index[1]], batch.edge_index[0])
-            frames = get_frames(X_src=batch.pos, X_dst=neighbor_com, normalize=normalize)
+            frames = get_frames(X_src=batch.pos, X_dst=neighbor_com, normalize=norm_pos_diff)
     elif rank == 1:
         if node_mask is not None:
             edge_mask = node_mask[batch.edge_index[0]] & node_mask[batch.edge_index[1]]
             X_src = batch.pos[batch.edge_index[0]][edge_mask]
             X_dst = batch.pos[batch.edge_index[1]][edge_mask]
-            frames[edge_mask] = get_frames(X_src, X_dst, normalize=normalize)
+            frames[edge_mask] = get_frames(X_src, X_dst, normalize=norm_pos_diff)
         else:
             X_src = batch.pos[batch.edge_index[0]]
             X_dst = batch.pos[batch.edge_index[1]]
-            frames = get_frames(X_src, X_dst, normalize=normalize)
+            frames = get_frames(X_src, X_dst, normalize=norm_pos_diff)
     elif rank == 2:
         if node_mask is not None:
             in_sse_node_mask = node_mask[batch.N0_2.indices()[0]]
             pr_com = get_com(batch.pos[node_mask])
             sse_com = get_com(batch.pos_in_sse[in_sse_node_mask], batch.N0_2.indices()[1][in_sse_node_mask])
             sse_mask = get_com(batch.pos_in_sse[in_sse_node_mask].abs(), batch.N0_2.indices()[1][in_sse_node_mask]) != 0.0
-            frames[sse_mask] = get_frames(X_src=sse_com, X_dst=pr_com, normalize=normalize)[sse_mask]
+            frames[sse_mask] = get_frames(X_src=sse_com, X_dst=pr_com, normalize=norm_pos_diff)[sse_mask]
         else:
             pr_com = get_com(batch.pos)
             sse_com = get_com(batch.pos_in_sse, batch.N0_2.indices()[1])
-            frames = get_frames(X_src=sse_com, X_dst=pr_com, normalize=normalize)
+            frames = get_frames(X_src=sse_com, X_dst=pr_com, normalize=norm_pos_diff)
     else:
         raise ValueError(f"Invalid rank: {rank}, available ranks are 0, 1, 2")
 

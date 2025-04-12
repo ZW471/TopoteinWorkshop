@@ -19,8 +19,8 @@ from proteinworkshop.models.utils import (
     centralize,
     decentralize,
     get_aggregation,
-    localize,
 )
+from topotein.models.utils import localize
 from proteinworkshop.types import EncoderOutput
 from topotein.models.graph_encoders.layers.tcp import TCPEmbedding, TCPInteractions
 
@@ -180,8 +180,8 @@ class TCPNetModel(GCPNetModel):
         )
 
         # Craft complete local frames corresponding to each edge
-        batch.f_ij = self.localize(batch.pos, batch.edge_index)
-        batch.f_ij_cell = self.localize(batch.pos, batch.sse_cell_index_simple)
+        batch.f_ij = self.localize(batch, rank=1)
+        batch.f_ij_cell = self.localize(batch, rank=2)
         batch.node_to_sse_mapping = batch.N0_2
 
         # Embed node and edge input features

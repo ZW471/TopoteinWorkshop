@@ -180,7 +180,6 @@ class TopoteinComplex:
 
         return result
 
-
     def incidence_matrix(self, from_rank, to_rank):
         cache = self._read_neighborhood_cache(neighborhood_type='B', rank=from_rank, to_rank=to_rank)
         if cache is not None:

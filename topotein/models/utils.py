@@ -6,6 +6,8 @@ from beartype import beartype as typechecker
 from graphein.protein.tensor.data import ProteinBatch
 from jaxtyping import Bool, jaxtyped
 from torch_geometric.data import Batch
+from torch_scatter import scatter_mean
+
 
 @jaxtyped(typechecker=typechecker)
 def centralize(
@@ -94,3 +96,59 @@ def map_to_cell_index(edge_index: torch.Tensor, node_to_sse_mapping: torch.Tenso
     sse_lookup[sse_mapping.indices()[0]] = sse_mapping.indices()[1]
     cell_edge_index = torch.stack([sse_lookup[edge_index[i]] for i in range(2)], dim=0)
     return cell_edge_index
+
+def get_com(positions, cluster_ids=None):
+    if cluster_ids is None:
+        return torch.mean(positions, dim=0, keepdim=True)
+    else:
+        return scatter_mean(positions, cluster_ids, dim=0)
+
+def get_frames(X_src, X_dst, normalize=True):
+    a_vec = X_src - X_dst
+    b_vec = torch.linalg.cross(X_src, X_dst)
+
+    if normalize:
+        a_vec = a_vec / (torch.linalg.norm(a_vec, dim=1, keepdim=True) + 1)
+        b_vec = b_vec / (torch.linalg.norm(b_vec, dim=1, keepdim=True) + 1)
+
+    c_vec = torch.linalg.cross(a_vec, b_vec)
+    return torch.stack([a_vec, b_vec, c_vec], dim=1)
+
+def localize(batch, rank, node_mask=None, normalize=True):
+    frames = (
+            torch.ones((batch.sse_cell_complex._get_size_of_rank(rank), 3, 3), device=batch.pos.device)
+            * torch.inf
+    )
+    if rank == 0:
+        if node_mask is not None:
+            dst_node_mask = node_mask[batch.edge_index[1]]
+            neighbor_com = get_com(batch.pos[batch.edge_index[1]][dst_node_mask], batch.edge_index[0][dst_node_mask])
+            frames[node_mask] = get_frames(X_src=batch.pos[node_mask], X_dst=neighbor_com[node_mask], normalize=normalize)
+        else:
+            neighbor_com = get_com(batch.pos[batch.edge_index[1]], batch.edge_index[0])
+            frames = get_frames(X_src=batch.pos, X_dst=neighbor_com, normalize=normalize)
+    elif rank == 1:
+        if node_mask is not None:
+            edge_mask = node_mask[batch.edge_index[0]] & node_mask[batch.edge_index[1]]
+            X_src = batch.pos[batch.edge_index[0]][edge_mask]
+            X_dst = batch.pos[batch.edge_index[1]][edge_mask]
+            frames[edge_mask] = get_frames(X_src, X_dst, normalize=normalize)
+        else:
+            X_src = batch.pos[batch.edge_index[0]]
+            X_dst = batch.pos[batch.edge_index[1]]
+            frames = get_frames(X_src, X_dst, normalize=normalize)
+    elif rank == 2:
+        if node_mask is not None:
+            in_sse_node_mask = node_mask[batch.N0_2.indices()[0]]
+            pr_com = get_com(batch.pos[node_mask])
+            sse_com = get_com(batch.pos_in_sse[in_sse_node_mask], batch.N0_2.indices()[1][in_sse_node_mask])
+            sse_mask = get_com(batch.pos_in_sse[in_sse_node_mask].abs(), batch.N0_2.indices()[1][in_sse_node_mask]) != 0.0
+            frames[sse_mask] = get_frames(X_src=sse_com, X_dst=pr_com, normalize=normalize)[sse_mask]
+        else:
+            pr_com = get_com(batch.pos)
+            sse_com = get_com(batch.pos_in_sse, batch.N0_2.indices()[1])
+            frames = get_frames(X_src=sse_com, X_dst=pr_com, normalize=normalize)
+    else:
+        raise ValueError(f"Invalid rank: {rank}, available ranks are 0, 1, 2")
+
+    return frames

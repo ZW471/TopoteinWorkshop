@@ -141,7 +141,7 @@ def finetune(cfg: DictConfig):
             splits = ["fold", "family", "superfamily"]
             wandb_logger = copy.deepcopy(trainer.logger)
             for split in splits:
-                dataloader = datamodule.get_test_loader(split)
+                dataloader = datamodule.test_dataloader(split)
                 trainer.logger = False
                 results = trainer.test(
                     model=model, dataloaders=dataloader, ckpt_path="best"

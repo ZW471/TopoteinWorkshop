@@ -1,5 +1,6 @@
-program: proteinworkshop/train.py
+program: /home/zw471/PycharmProjects/Topotein/ProteinWorkshop/proteinworkshop/train.py
 method: grid
+name: topotein_baseline_go
 metric: # Does not matter, as we are using sweep to run the experiment.
   goal: minimize
   name: val/loss/total

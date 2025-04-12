@@ -1,4 +1,4 @@
-program: proteinworkshop/train.py
+program: /home/zw471/PycharmProjects/Topotein/ProteinWorkshop/proteinworkshop/train.py
 method: grid
 name: topotein_baseline_fold
 metric: # Does not matter, as we are using sweep to run the experiment.
@@ -31,7 +31,7 @@ parameters:
     values: [none]
 
   trainer:
-    value: cpu
+    value: gpu
 
   trainer.max_epochs:
     value: 150

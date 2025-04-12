@@ -92,7 +92,13 @@ def visualise(cfg: omegaconf.DictConfig):
     # Load weights
     # We only want to load weights
     log.info(f"Loading weights from checkpoint {cfg.ckpt_path}...")
-    state_dict = torch.load(cfg.ckpt_path, map_location=cfg.trainer.accelerator)["state_dict"]
+    if cfg.trainer.accelerator == "cpu":
+        log.warning(
+            "Loading weights on CPU."
+        )
+        state_dict = torch.load(cfg.ckpt_path, map_location=cfg.trainer.accelerator)["state_dict"]
+    else:
+        state_dict = torch.load(cfg.ckpt_path)["state_dict"]
 
     if cfg.finetune.encoder.load_weights:
         encoder_weights = collections.OrderedDict()

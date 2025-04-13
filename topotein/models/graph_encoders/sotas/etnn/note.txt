@@ -1,3 +1,0 @@
-adapted from https://github.com/NSAPH-Projects/topological-equivariant-networks
-
-https://doi.org/10.48550/arXiv.2405.15429

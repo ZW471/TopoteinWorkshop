@@ -62,7 +62,7 @@ model_cfg:
   dropout: 0.0
 # layer config #
 layer_cfg:
-  backbone_encoder_ckpt: "/Users/dricpro/PycharmProjects/Topotein/checkpoints/GCPNet/structure_denoising.ckpt"
+  backbone_encoder_ckpt: ${oc.env:CKPT_PATH}/GCPNet/structure_denoising.ckpt
   freeze_backbone_encoder: True
   pre_norm: false
   use_gcp_norm: true

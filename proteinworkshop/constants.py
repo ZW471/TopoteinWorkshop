@@ -52,6 +52,10 @@ if os.environ.get("DATA_PATH") is None:
 if os.environ.get("RUNS_PATH") is None:
     RUNS_PATH = str(PROJECT_PATH / "runs")
     os.environ["RUNS_PATH"] = str(RUNS_PATH)
+if os.environ.get("CKPT_PATH") is None:
+    DATA_PATH = pathlib.Path(DATA_PATH)  # Ensure DATA_PATH is a pathlib.Path object
+    CKPT_PATH = DATA_PATH.parent / "checkpoints"
+    os.environ["CKPT_PATH"] = str(CKPT_PATH)
 
 # ---------------- HYDRA CONSTANTS ----------------
 # HYDRA_CONFIG_PATH = PROJECT_PATH / "configs"

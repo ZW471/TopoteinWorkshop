@@ -9,7 +9,8 @@ features:
     - N0_2 = B0_2
   directed_edges: True
 # global config #
-num_layers: 6 # Number of layers in the model
+num_layers: 2 # Number of layers in the model
+backbone_num_layers: 4 # Number of layers in the backbone encoder
 emb_dim: 128
 node_s_emb_dim: ${.emb_dim} # Dimension of the node state embeddings
 node_v_emb_dim: 16 # Dimension of the node vector embeddings
@@ -62,8 +63,8 @@ model_cfg:
   dropout: 0.0
 # layer config #
 layer_cfg:
-  backbone_encoder_ckpt: ${oc.env:CKPT_PATH}/GCPNet/structure_denoising.ckpt
-  freeze_backbone_encoder: True
+  backbone_encoder_ckpt: ${oc.env:CKPT_PATH}/GCPNet/sequence_denoising.ckpt
+  freeze_backbone_encoder: False
   pre_norm: false
   use_gcp_norm: true
   use_gcp_dropout: true

@@ -109,28 +109,28 @@ def train_model(
         cfg.dataset.datamodule
     )
     if isinstance(datamodule, FoldCompLightningDataModule):
-            log.info(
-                f"Setting up fixed dataloaders for {datamodule.__class__.__name__}"
-            )
-            def setup_fixed(self, stage: Optional[str] = None):
-                if stage == "fit" or stage is None:
-                    log.info("Preprocessing training data")
-                    self.train_dataset()
-                    log.info("Preprocessing validation data")
-                    self.val_dataset()
-                elif stage == "test":
-                    log.info("Preprocessing test data")
-                    if hasattr(self, "test_dataset_names"):
-                        for split in self.test_dataset_names:
-                            setattr(self, f"{split}_ds", self.test_dataset(split))
-                    else:
-                        self.test_dataset()
-                elif stage == "lazy_init":
-                    log.info("Preprocessing validation data")
-                    self.val_dataset()
-            datamodule.setup = types.MethodType(
-                setup_fixed, datamodule
-            )
+        log.info(
+            f"Setting up fixed dataloaders for {datamodule.__class__.__name__}"
+        )
+        def setup_fixed(self, stage: Optional[str] = None):
+            if stage == "fit" or stage is None:
+                log.info("Preprocessing training data")
+                self.train_dataset()
+                log.info("Preprocessing validation data")
+                self.val_dataset()
+            elif stage == "test":
+                log.info("Preprocessing test data")
+                if hasattr(self, "test_dataset_names"):
+                    for split in self.test_dataset_names:
+                        setattr(self, f"{split}_ds", self.test_dataset(split))
+                else:
+                    self.test_dataset()
+            elif stage == "lazy_init":
+                log.info("Preprocessing validation data")
+                self.val_dataset()
+        datamodule.setup = types.MethodType(
+            setup_fixed, datamodule
+        )
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = utils.callbacks.instantiate_callbacks(
         cfg.get("callbacks")

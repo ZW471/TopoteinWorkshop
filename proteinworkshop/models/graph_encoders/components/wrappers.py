@@ -92,4 +92,8 @@ class ScalarVector(tuple):
         self.vector[key] = value.vector
 
     def __repr__(self):
-        return f"ScalarVector({self.scalar}, {self.vector})"
+        return f"ScalarVector({self.scalar}, {self.vector}, s_shape={self.scalar.shape}, v_shape={self.vector.shape})"
+
+    @property
+    def shape(self):
+        return self.scalar.shape, self.vector.shape

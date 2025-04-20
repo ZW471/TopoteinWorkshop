@@ -6,7 +6,7 @@ features:
   vector_edge_features: ["edge_vectors"]
   vector_sse_features: ["sse_vectors"]
   neighborhoods:
-    - N0_0 = A0_1 + A0_2
+    - N0_0 = A0_1
     - N0_3 = B0_3
     - N0_2 = B0_2
     - N0_1 = B0_1
@@ -64,7 +64,7 @@ model_cfg:
   c_input_dim: ${resolve_feature_config_dim:${features},scalar_sse_features,${task},true}
   rho_input_dim: ${resolve_feature_config_dim:${features},vector_sse_features,${task},false}
   p_input_dim: ${resolve_feature_config_dim:${features},scalar_pr_features,${task},true}
-  pi_input_dim: ${resolve_feature_config_dim:${features},vector_pr_features,${task},false}
+  pi_input_dim: ${..node_v_emb_dim}
   # note: each `hidden_dim` must be evenly divisible by `bottleneck`
   h_hidden_dim: ${..node_s_emb_dim}
   chi_hidden_dim: ${..node_v_emb_dim}

@@ -101,10 +101,3 @@ ScalarNodeFeature = Literal[
 VectorNodeFeature = Literal["orientation", "virtual_cb_vector"]
 ScalarEdgeFeature = Literal["edge_distance", "sequence_distance"]
 VectorEdgeFeature = Literal["edge_vectors", "pos_emb"]
-
-ScalarCellFeature = Literal[
-    "secondary_structure_one_hot",
-    "secondary_structure_length"
-]
-VectorCellFeature = Literal["undefined"]
-

@@ -63,6 +63,8 @@ model_cfg:
   xi_input_dim: ${resolve_feature_config_dim:${features},vector_edge_features,${task},false}
   c_input_dim: ${resolve_feature_config_dim:${features},scalar_sse_features,${task},true}
   rho_input_dim: ${resolve_feature_config_dim:${features},vector_sse_features,${task},false}
+  p_input_dim: ${resolve_feature_config_dim:${features},scalar_pr_features,${task},true}
+  pi_input_dim: ${resolve_feature_config_dim:${features},vector_pr_features,${task},false}
   # note: each `hidden_dim` must be evenly divisible by `bottleneck`
   h_hidden_dim: ${..node_s_emb_dim}
   chi_hidden_dim: ${..node_v_emb_dim}

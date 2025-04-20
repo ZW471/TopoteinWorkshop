@@ -112,6 +112,16 @@ def get_input_dim(
         "sse_variance_wrt_localized_frame": 3,
         ### vector cell features ###
         "sse_vectors": 8,
+        ### scalar protein features ###
+        "pr_size": 1,
+        "aa_freq": 23,
+        "aa_std": 23,
+        "sse_freq": 3,
+        "sse_std": 3,
+        "sse_size_mean": 1,
+        "sse_size_std": 1,
+        "gyration_r": 1,
+        "contact_density_and_order": 2
     }
 
     sizes = [

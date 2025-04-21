@@ -98,7 +98,7 @@ class GCPNetModel(torch.nn.Module):
         self.decentralize = partial(decentralize, key="pos")
 
         # Input embeddings
-        self.tcp_embedding = gcp.GCPEmbedding(
+        self.gcp_embedding = gcp.GCPEmbedding(
             edge_input_dims,
             node_input_dims,
             self.edge_dims,
@@ -177,7 +177,7 @@ class GCPNetModel(torch.nn.Module):
         batch.f_ij = self.localize(batch.pos, batch.edge_index)
 
         # Embed node and edge input features
-        (h, chi), (e, xi) = self.tcp_embedding(batch)
+        (h, chi), (e, xi) = self.gcp_embedding(batch)
 
         # Update graph features using a series of geometric message-passing layers
         for layer in self.interaction_layers:

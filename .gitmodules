@@ -1,3 +1,6 @@
 [submodule "topotein"]
 	path = topotein
 	url = git@github.com:ZW471/topotein.git
+[submodule "topotein_la"]
+	path = topotein_la
+	url = git@github.com:ZW471/TopoteinLA.git

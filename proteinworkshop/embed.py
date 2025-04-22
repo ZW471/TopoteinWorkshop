@@ -1,13 +1,16 @@
 import collections
+import json
 import sys
+from pathlib import Path
+import os
 
-import chromadb
 import hydra
 import lightning as L
 import omegaconf
 import torch
-from beartype.typing import List
-from chromadb.config import Settings
+from beartype.typing import Dict, List, Optional, Union
+
+
 from loguru import logger as log
 from tqdm import tqdm
 
@@ -22,7 +25,7 @@ from proteinworkshop.models.base import BenchMarkModel
 
 def embed(cfg: omegaconf.DictConfig):
     assert cfg.ckpt_path, "A checkpoint path must be provided."
-    assert cfg.plot_filepath, "A plot name must be provided."
+    # assert cfg.plot_filepath, "A plot name must be provided."
     if cfg.use_cuda_device and not torch.cuda.is_available():
         raise RuntimeError("CUDA device requested but CUDA is not available.")
 
@@ -54,7 +57,7 @@ def embed(cfg: omegaconf.DictConfig):
     # Load weights
     # We only want to load weights
     log.info(f"Loading weights from checkpoint {cfg.ckpt_path}...")
-    state_dict = torch.load(cfg.ckpt_path)["state_dict"]
+    state_dict = torch.load(cfg.ckpt_path, map_location="cpu" if cfg.trainer.accelerator == "cpu" else None)["state_dict"]
 
     if cfg.finetune.encoder.load_weights:
         encoder_weights = collections.OrderedDict()
@@ -93,17 +96,31 @@ def embed(cfg: omegaconf.DictConfig):
     # Setup datamodule
     datamodule.setup()
 
-    # Initialise chromadb
-    chroma_client = chromadb.Client(
-        Settings(
-            chroma_db_impl="duckdb+parquet",
-            persist_directory=".chromadb",  # Optional, defaults to .chromadb/ in the current directory
-            anonymized_telemetry=False,
-        )
-    )
-    chroma_client.persist()
+    # Prepare storage for embeddings
+    if cfg.use_chromadb:
+        log.info("Using ChromaDB for embedding storage")
 
-    collection = chroma_client.create_collection(name=cfg.collection_name)
+        import chromadb
+        from chromadb.config import Settings
+        assert cfg.collection_name, "A collection name must be provided when use_chromadb is True."
+        # Initialise chromadb
+        chroma_client = chromadb.Client(
+            Settings(
+                chroma_db_impl="duckdb+parquet",
+                persist_directory=".chromadb",  # Optional, defaults to .chromadb/ in the current directory
+                anonymized_telemetry=False,
+            )
+        )
+        chroma_client.persist()
+        collection = chroma_client.create_collection(name=cfg.collection_name)
+    else:
+        log.info("Using JSONL file for embedding storage")
+        assert cfg.jsonl_filepath, "A JSONL filepath must be provided when use_chromadb is False."
+        jsonl_path = Path(os.path.join(os.environ["EMBED_PATH"], cfg.jsonl_filepath, "embeddings.jsonl"))
+        # Create parent directories if they don't exist
+        jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+        # Initialize empty list to store embeddings
+        jsonl_data = []
 
     # Iterate over batches and perform embedding
     dataloaders = {}
@@ -125,9 +142,26 @@ def embed(cfg: omegaconf.DictConfig):
             # node_embeddings = out["node_embedding"] # TODO: add node embeddings
             graph_embeddings = out["graph_embedding"]
             node_embeddings = graph_embeddings.tolist()
-            collection.add(embeddings=node_embeddings, ids=ids)
 
-    chroma_client.persist()
+            if cfg.use_chromadb:
+                collection.add(embeddings=node_embeddings, ids=ids)
+            else:
+                # Store embeddings in JSONL format
+                for i, (id_val, embedding) in enumerate(zip(ids, node_embeddings)):
+                    jsonl_data.append({
+                        "id": id_val,
+                        "embedding": embedding,
+                        "split": split
+                    })
+
+    # Persist storage
+    if cfg.use_chromadb:
+        chroma_client.persist()
+    else:
+        log.info(f"Writing embeddings to JSONL file: {jsonl_path}")
+        with open(jsonl_path, 'w') as f:
+            for item in jsonl_data:
+                f.write(json.dumps(item) + '\n')
 
 
 # Load hydra config from yaml files and command line arguments.

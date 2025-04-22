@@ -56,6 +56,10 @@ if os.environ.get("CKPT_PATH") is None:
     DATA_PATH = pathlib.Path(DATA_PATH)  # Ensure DATA_PATH is a pathlib.Path object
     CKPT_PATH = DATA_PATH.parent / "checkpoints"
     os.environ["CKPT_PATH"] = str(CKPT_PATH)
+if os.environ.get("EMBED_PATH") is None:
+    DATA_PATH = pathlib.Path(DATA_PATH)  # Ensure DATA_PATH is a pathlib.Path object
+    EMBED_PATH = DATA_PATH.parent / "embeddings"
+    os.environ["EMBED_PATH"] = str(EMBED_PATH)
 
 # ---------------- HYDRA CONSTANTS ----------------
 # HYDRA_CONFIG_PATH = PROJECT_PATH / "configs"

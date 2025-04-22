@@ -27,11 +27,13 @@ task_name: "embed"
 
 compile: True
 
-# simply provide checkpoint path and collection name to embed dataset using chroma
+# simply provide checkpoint path and collection name to embed dataset
 ckpt_path: null # path to checkpoint to load
 collection_name: null # name of embedding collection to curate
 use_cuda_device: True # if True, use an available CUDA device for embedding generation
 cuda_device_index: 0 # if CUDA devices are targeted and available, which available CUDA device to use for embedding generation
+use_chromadb: False # if True, use ChromaDB to store embeddings, otherwise store in JSONL file
+jsonl_filepath: null # path to JSONL file to store embeddings when use_chromadb is False
 
 embed:
   split: ["train", "val", "test"]

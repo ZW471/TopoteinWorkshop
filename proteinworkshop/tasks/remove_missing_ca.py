@@ -46,7 +46,10 @@ class RemoveMissingCa(T.BaseTransform):
             data.x = data.x[mask]
 
         if hasattr(data, "amino_acid_one_hot"):
-            data.amino_acid_one_hot = data.amino_acid_one_hot[mask]
+            if isinstance(data.amino_acid_one_hot, torch.Tensor):
+                data.amino_acid_one_hot = data.amino_acid_one_hot[mask]
+            else:
+                pass # TODO: there are times that data.amino_acid_one_hot is a function
 
         if hasattr(data, "seq_pos"):
             data.seq_pos = data.seq_pos[mask]

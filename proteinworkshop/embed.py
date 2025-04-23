@@ -1,8 +1,10 @@
 import collections
 import json
 import sys
-from pathlib import Path
 import os
+from pathlib import Path
+import multiprocessing as mp
+from functools import partial
 
 import hydra
 import lightning as L
@@ -23,9 +25,32 @@ from proteinworkshop.configs import config
 from proteinworkshop.models.base import BenchMarkModel
 
 
+def process_batch(batch, model, device, split, jsonl_path, use_chromadb=False, collection=None):
+    """Process a single batch to generate embeddings"""
+    ids = batch.id
+    batch = batch.to(device)
+    batch = model.featuriser(batch)
+    out = model.forward(batch)
+    graph_embeddings = out["graph_embedding"]
+    node_embeddings = graph_embeddings.tolist()
+
+    if use_chromadb:
+        collection.add(embeddings=node_embeddings, ids=ids)
+    else:
+        # Write embeddings directly to file
+        with open(jsonl_path, 'a') as f:
+            for id_val, embedding in zip(ids, node_embeddings):
+                f.write(json.dumps({
+                    "id": id_val,
+                    "embedding": embedding,
+                    "split": split
+                }) + '\n')
+
+    return len(ids)  # Return number of processed samples for tracking progress
+
+
 def embed(cfg: omegaconf.DictConfig):
     assert cfg.ckpt_path, "A checkpoint path must be provided."
-    # assert cfg.plot_filepath, "A plot name must be provided."
     if cfg.use_cuda_device and not torch.cuda.is_available():
         raise RuntimeError("CUDA device requested but CUDA is not available.")
 
@@ -40,9 +65,6 @@ def embed(cfg: omegaconf.DictConfig):
     model: L.LightningModule = BenchMarkModel(cfg)
 
     # Initialize lazy layers for parameter counts
-    # This is also required for the model to be able to load weights
-    # Otherwise lazy layers will have their parameters reset
-    # https://pytorch.org/docs/stable/generated/torch.nn.modules.lazy.LazyModuleMixin.html#torch.nn.modules.lazy.LazyModuleMixin
     log.info("Initializing lazy layers...")
     with torch.no_grad():
         datamodule.setup(stage="lazy_init")  # type: ignore
@@ -55,7 +77,6 @@ def embed(cfg: omegaconf.DictConfig):
         del batch, out
 
     # Load weights
-    # We only want to load weights
     log.info(f"Loading weights from checkpoint {cfg.ckpt_path}...")
     state_dict = torch.load(cfg.ckpt_path, map_location="cpu" if cfg.trainer.accelerator == "cpu" else None)["state_dict"]
 
@@ -119,8 +140,13 @@ def embed(cfg: omegaconf.DictConfig):
         jsonl_path = Path(os.path.join(os.environ["EMBED_PATH"], cfg.jsonl_filepath, "embeddings.jsonl"))
         # Create parent directories if they don't exist
         jsonl_path.parent.mkdir(parents=True, exist_ok=True)
-        # Initialize empty list to store embeddings
-        jsonl_data = []
+        # Create new empty file if it exists
+        with open(jsonl_path, 'w') as f:
+            pass
+
+    # Determine number of processes to use
+    num_workers = min(mp.cpu_count(), 12)  # Use up to 4 CPU cores or less if not available
+    log.info(f"Using {num_workers} workers for parallel processing")
 
     # Iterate over batches and perform embedding
     dataloaders = {}
@@ -131,37 +157,55 @@ def embed(cfg: omegaconf.DictConfig):
     if "test" in cfg.embed.split:
         dataloaders["test"] = datamodule.test_dataloader()
 
+    # Process all splits
     for split, dataloader in dataloaders.items():
         log.info(f"Performing embedding for split: {split}")
 
-        for batch in tqdm(dataloader):
-            ids = batch.id
-            batch = batch.to(device)
-            batch = model.featuriser(batch)
-            out = model.forward(batch)
-            # node_embeddings = out["node_embedding"] # TODO: add node embeddings
-            graph_embeddings = out["graph_embedding"]
-            node_embeddings = graph_embeddings.tolist()
+        # Process batches in parallel if not using CUDA
+        if cfg.use_cuda_device:
+            # If using CUDA, process sequentially
+            for batch in tqdm(dataloader):
+                process_batch(
+                    batch=batch,
+                    model=model,
+                    device=device,
+                    split=split,
+                    jsonl_path=jsonl_path,
+                    use_chromadb=cfg.use_chromadb,
+                    collection=collection if cfg.use_chromadb else None
+                )
+        else:
+            # For CPU processing, we can use multiprocessing
+            # First, collect all batches
+            all_batches = list(dataloader)
 
-            if cfg.use_chromadb:
-                collection.add(embeddings=node_embeddings, ids=ids)
-            else:
-                # Store embeddings in JSONL format
-                for i, (id_val, embedding) in enumerate(zip(ids, node_embeddings)):
-                    jsonl_data.append({
-                        "id": id_val,
-                        "embedding": embedding,
-                        "split": split
-                    })
+            # Create a process pool
+            with mp.Pool(num_workers) as pool:
+                # Create a partial function with fixed parameters
+                process_fn = partial(
+                    process_batch,
+                    model=model,
+                    device=device,
+                    split=split,
+                    jsonl_path=jsonl_path,
+                    use_chromadb=cfg.use_chromadb,
+                    collection=collection if cfg.use_chromadb else None
+                )
 
-    # Persist storage
+                # Map the function to all batches with a progress bar
+                for _ in tqdm(
+                        pool.imap_unordered(process_fn, all_batches),
+                        total=len(all_batches),
+                        desc=f"Processing {split} split"
+                ):
+                    pass
+
+    # Persist storage for ChromaDB
     if cfg.use_chromadb:
         chroma_client.persist()
+        log.info("ChromaDB embeddings persisted successfully")
     else:
-        log.info(f"Writing embeddings to JSONL file: {jsonl_path}")
-        with open(jsonl_path, 'w') as f:
-            for item in jsonl_data:
-                f.write(json.dumps(item) + '\n')
+        log.info(f"Embeddings have been written to: {jsonl_path}")
 
 
 # Load hydra config from yaml files and command line arguments.

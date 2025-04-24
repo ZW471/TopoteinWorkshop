@@ -53,6 +53,10 @@ class RemoveMissingCa(T.BaseTransform):
 
         if hasattr(data, "seq_pos"):
             data.seq_pos = data.seq_pos[mask]
+
+        if hasattr(data, "sse"):
+            data.sse = data.sse[mask]
+
         return data
 
 

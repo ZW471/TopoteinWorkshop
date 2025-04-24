@@ -32,17 +32,20 @@ def process_batch(batch, model, device, split, jsonl_path, use_chromadb=False, c
     batch = model.featuriser(batch)
     out = model.forward(batch)
     graph_embeddings = out["graph_embedding"]
-    node_embeddings = graph_embeddings.tolist()
+    node_embeddings = out["node_embedding"]
 
     if use_chromadb:
         collection.add(embeddings=node_embeddings, ids=ids)
     else:
         # Write embeddings directly to file
         with open(jsonl_path, 'a') as f:
-            for id_val, embedding in zip(ids, node_embeddings):
+            for idx, id_val in enumerate(ids):
+                g_emb = graph_embeddings[idx].detach().cpu().tolist()
+                n_emb = node_embeddings[batch.batch == idx].detach().cpu().tolist()
                 f.write(json.dumps({
                     "id": id_val,
-                    "embedding": embedding,
+                    "node_embedding": n_emb,
+                    "graph_embedding": g_emb,
                     "split": split
                 }) + '\n')
 
@@ -145,7 +148,7 @@ def embed(cfg: omegaconf.DictConfig):
             pass
 
     # Determine number of processes to use
-    num_workers = min(mp.cpu_count(), 12)  # Use up to 4 CPU cores or less if not available
+    num_workers = min(mp.cpu_count() - 1, 12)  # Use up to 4 CPU cores or less if not available
     log.info(f"Using {num_workers} workers for parallel processing")
 
     # Iterate over batches and perform embedding

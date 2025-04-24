@@ -135,24 +135,32 @@ def finetune(cfg: DictConfig):
 
     if cfg.get("test"):
         log.info("Starting testing!")
-        # Run test on all splits if using fold_classification dataset
-        if (
-            cfg.dataset.datamodule._target_
-            == "proteinworkshop.datasets.fold_classification.FoldClassificationDataModule"
-        ):
-            splits = ["fold", "family", "superfamily"]
+        log.info("Starting testing!")
+        if hasattr(datamodule, "test_dataset_names"):
+            splits = datamodule.test_dataset_names
             wandb_logger = copy.deepcopy(trainer.logger)
-            for split in splits:
+            for i, split in enumerate(splits):
                 dataloader = datamodule.test_dataloader(split)
                 trainer.logger = False
-                results = trainer.test(
-                    model=model, dataloaders=dataloader, ckpt_path="best"
-                )[0]
+                log.info(f"Testing on {split} ({i+1} / {len(splits)})...")
+                try:
+                    results = trainer.test(
+                        model=model, dataloaders=dataloader, ckpt_path="best"
+                    )[0]
+                except ValueError as e:
+                    log.warning(f"Error testing on best checkpoint: {e}, trying again with current weights.")
+                    results = trainer.test(
+                        model=model, dataloaders=dataloader, ckpt_path=None
+                    )[0]
                 results = {f"{k}/{split}": v for k, v in results.items()}
                 log.info(f"{split}: {results}")
                 wandb_logger.log_metrics(results)
         else:
-            trainer.test(model=model, datamodule=datamodule, ckpt_path="best")
+            try:
+                trainer.test(model=model, datamodule=datamodule, ckpt_path="best")
+            except ValueError as e:
+                log.warning(f"Error testing on best checkpoint: {e}, trying again with current weights.")
+                trainer.test(model=model, datamodule=datamodule, ckpt_path=None)
 
     return metric_dict, object_dict
 

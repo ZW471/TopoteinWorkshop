@@ -20,3 +20,6 @@ pip install submitit
 # Scheduler
 pip install flash lightning-flash torchmetrics>=1.2.0,2.0.0 pytorch-lightning>=2.0.7,<3.0.0
  jsonargparse-4.9.0 lightning-flash-0.8.1 pytorch-lightning-2.5.0.post0 torchmetrics-1.6.1
+
+# test ckpt without training/finetune
+ - python ./ProteinWorkshop/proteinworkshop/finetune.py encoder=gcpnet task=multilabel_graph_classification dataset=go-cc features=ca_bb +aux_task=nn_structure_r3 dataset.datamodule.dataset_fraction=0.01 trainer=gpu trainer.devices=1 logger=wandb +test=True trainer.max_epochs=0 name="gcp-gocc-struct" ckpt_path=/home/drizer/PycharmProjects/Topotein/checkpoints/GCPNet/structure_denoising.ckpt

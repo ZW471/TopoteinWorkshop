@@ -304,7 +304,7 @@ class ProteinDataset(Dataset):
         store_het: bool = False,
         out_names: Optional[List[str]] = None,
     ):
-        self.pdb_codes = [pdb.lower() for pdb in pdb_codes]
+        self.pdb_codes = [pdb for pdb in pdb_codes]
         self.pdb_dir = pdb_dir
         self.pdb_paths = pdb_paths
         self.overwrite = overwrite
@@ -335,10 +335,19 @@ class ProteinDataset(Dataset):
         self.structures = pdb_codes if pdb_codes is not None else pdb_paths
         if self.in_memory:
             logger.info("Reading data into memory")
-            self.data = [
-                torch.load(pathlib.Path(self.root) / "processed" / f, weights_only=False)
-                for f in tqdm(self.processed_file_names)
-            ]
+            self.data = []
+            invalid = []
+            for f in tqdm(self.processed_file_names):
+                try:
+                    file = torch.load(pathlib.Path(self.root) / "processed" / f, weights_only=False)
+                    self.data.append(file)
+                except RuntimeError:
+                    invalid.append(f)
+                    continue
+            if len(invalid) > 0:
+                logger.warning(
+                    f"Some files could not be loaded into memory: {invalid}. This may be due to the files being corrupted or not being in the correct format."
+                )
 
     def download(self):
         """

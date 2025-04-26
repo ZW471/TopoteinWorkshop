@@ -133,26 +133,36 @@ def finetune(cfg: DictConfig):
 
     metric_dict = trainer.callback_metrics
 
+    no_training = cfg.get("no_training", False)
+
     if cfg.get("test"):
         log.info("Starting testing!")
-        # Run test on all splits if using fold_classification dataset
-        if (
-            cfg.dataset.datamodule._target_
-            == "proteinworkshop.datasets.fold_classification.FoldClassificationDataModule"
-        ):
-            splits = ["fold", "family", "superfamily"]
+        log.info("Starting testing!")
+        if hasattr(datamodule, "test_dataset_names"):
+            splits = datamodule.test_dataset_names
             wandb_logger = copy.deepcopy(trainer.logger)
-            for split in splits:
+            for i, split in enumerate(splits):
                 dataloader = datamodule.test_dataloader(split)
                 trainer.logger = False
-                results = trainer.test(
-                    model=model, dataloaders=dataloader, ckpt_path="best"
-                )[0]
+                log.info(f"Testing on {split} ({i+1} / {len(splits)})...")
+                if not no_training:
+                    results = trainer.test(
+                        model=model, dataloaders=dataloader, ckpt_path="best"
+                    )[0]
+                else:
+                    log.warning(f"using current weight instead of best weight.")
+                    results = trainer.test(
+                        model=model, dataloaders=dataloader, ckpt_path=None
+                    )[0]
                 results = {f"{k}/{split}": v for k, v in results.items()}
                 log.info(f"{split}: {results}")
                 wandb_logger.log_metrics(results)
         else:
-            trainer.test(model=model, datamodule=datamodule, ckpt_path="best")
+            if not no_training:
+                trainer.test(model=model, datamodule=datamodule, ckpt_path="best")
+            else:
+                log.warning(f"using current weight instead of best weight.")
+                trainer.test(model=model, datamodule=datamodule, ckpt_path=None)
 
     return metric_dict, object_dict
 

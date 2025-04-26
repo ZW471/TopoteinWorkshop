@@ -70,6 +70,8 @@ def get_input_dim(
         ### scalar node features ###
         "amino_acid_one_hot": 23,  # 20 + 3
         "secondary_structure_one_hot": 3,
+        "dssp8_one_hot": 8,
+        "3di_one_hot": 20,
         "kappa": 2,
         "alpha": 2,
         "dihedrals": 6,
@@ -120,8 +122,12 @@ def get_input_dim(
         "sse_std": 3,
         "sse_size_mean": 1,
         "sse_size_std": 1,
+        "eigenvalues": 8,
+        "std_wrt_localized_frame": 3,
         "gyration_r": 1,
-        "contact_density_and_order": 2
+        "contact_density_and_order": 2,
+        ### vector protein features ###
+        "eignvectors": 3,
     }
 
     sizes = [

@@ -38,6 +38,8 @@ scalar_pr_features:
   - pr_size
   - gyration_r
   - contact_density_and_order
+  - eigenvalues
+  - std_wrt_localized_frame
 
 vector_pr_features: []
 neighborhoods: []

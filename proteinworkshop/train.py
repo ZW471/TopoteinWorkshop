@@ -206,7 +206,8 @@ def train_model(
         log.info("Compiling model!")
         model = torch_geometric.compile(model, dynamic=True)
 
-    if cfg.get("task_name") == "train":
+    no_training = cfg.get("no_training", False)
+    if cfg.get("task_name") == "train" and not no_training:
         log.info("Starting training!")
         trainer.fit(
             model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path")
@@ -229,13 +230,13 @@ def train_model(
                 trainer.logger = False
                 log.info(f"Testing on {split} ({i+1} / {len(splits)})...")
                 results = trainer.test(
-                    model=model, dataloaders=dataloader, ckpt_path="best"
+                    model=model, dataloaders=dataloader, ckpt_path="best" if not no_training else cfg.get("ckpt_path")
                 )[0]
                 results = {f"{k}/{split}": v for k, v in results.items()}
                 log.info(f"{split}: {results}")
                 wandb_logger.log_metrics(results)
         else:
-            trainer.test(model=model, datamodule=datamodule, ckpt_path="best")
+            trainer.test(model=model, datamodule=datamodule, ckpt_path="best" if not no_training else cfg.get("ckpt_path"))
 
 
 # Load hydra config from yaml files and command line arguments.

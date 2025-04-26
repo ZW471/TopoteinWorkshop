@@ -133,6 +133,8 @@ def finetune(cfg: DictConfig):
 
     metric_dict = trainer.callback_metrics
 
+    no_training = cfg.get("no_training", False)
+
     if cfg.get("test"):
         log.info("Starting testing!")
         log.info("Starting testing!")
@@ -143,12 +145,12 @@ def finetune(cfg: DictConfig):
                 dataloader = datamodule.test_dataloader(split)
                 trainer.logger = False
                 log.info(f"Testing on {split} ({i+1} / {len(splits)})...")
-                try:
+                if not no_training:
                     results = trainer.test(
                         model=model, dataloaders=dataloader, ckpt_path="best"
                     )[0]
-                except ValueError as e:
-                    log.warning(f"Error testing on best checkpoint: {e}, trying again with current weights.")
+                else:
+                    log.warning(f"using current weight instead of best weight.")
                     results = trainer.test(
                         model=model, dataloaders=dataloader, ckpt_path=None
                     )[0]
@@ -156,10 +158,10 @@ def finetune(cfg: DictConfig):
                 log.info(f"{split}: {results}")
                 wandb_logger.log_metrics(results)
         else:
-            try:
+            if not no_training:
                 trainer.test(model=model, datamodule=datamodule, ckpt_path="best")
-            except ValueError as e:
-                log.warning(f"Error testing on best checkpoint: {e}, trying again with current weights.")
+            else:
+                log.warning(f"using current weight instead of best weight.")
                 trainer.test(model=model, datamodule=datamodule, ckpt_path=None)
 
     return metric_dict, object_dict

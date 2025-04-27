@@ -31,6 +31,9 @@ activation: silu # Activation function to use in each GCP layer
 pool: sum # Global pooling method to be used
 # module config #
 module_cfg:
+  sse_update: true
+  pr_update: true
+  use_tnn_pooling: true
   norm_pos_diff: true
   scalar_gate: 0
   vector_gate: true

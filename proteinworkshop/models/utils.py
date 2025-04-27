@@ -127,7 +127,7 @@ def get_input_dim(
         "gyration_r": 1,
         "contact_density_and_order": 2,
         ### vector protein features ###
-        "eignvectors": 3,
+        "eigenvectors": 3,
     }
 
     sizes = [

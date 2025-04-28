@@ -5,7 +5,7 @@ features:
   vector_node_features: ["orientation"]
   vector_edge_features: ["edge_vectors"]
   vector_sse_features: ["sse_vectors"]
-  vector_pr_features: ["eigenvectors"]
+  vector_pr_features: ["farest_nodes", "nearest_nodes"]
   neighborhoods:
     - N0_2 = B0_2
     - N2_0 = B0_2.T

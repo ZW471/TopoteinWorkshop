@@ -128,6 +128,8 @@ def get_input_dim(
         "contact_density_and_order": 2,
         ### vector protein features ###
         "eigenvectors": 3,
+        "farest_nodes": 10,
+        "nearest_nodes": 10,
     }
 
     sizes = [

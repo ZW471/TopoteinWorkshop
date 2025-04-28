@@ -110,6 +110,13 @@ def validate_inverse_folding(cfg: DictConfig):
     :raises ExperimentConfigurationError: If the user is using no scalar node
         features.
     """
+    if "scalar_pr_features" in cfg.features:
+        for pr_aa_feats in ["aa_freq", "aa_std"]:
+            if pr_aa_feats in cfg.features.scalar_pr_features:
+                logger.warning(
+                    f"You are launching an inverse folding experiment with {pr_aa_feats} as a feature. This will be removed."
+                )
+                cfg.features.scalar_pr_features.remove(pr_aa_feats)
     if "amino_acid_one_hot" in cfg.features.scalar_node_features:
         logger.warning(
             "You are launching an inverse folding experiment with amino_acid_one_hot as a feature. This will be removed."

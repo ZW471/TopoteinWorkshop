@@ -21,11 +21,11 @@ sse_types:
   - E
   - C
 scalar_sse_features:
-  - sse_one_hot
-  - sse_size
-  - se_pos_encoding
-  - consecutive_angle
-  - torsional_angle
+  - sse_one_hot # 3
+  - sse_size # 1
+  - se_pos_encoding # 20
+  - consecutive_angle # 4
+  - torsional_angle # 2
   - eigenvalues
 #  - sse_vector_norms
   - std_wrt_localized_frame

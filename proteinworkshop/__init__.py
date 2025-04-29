@@ -37,3 +37,7 @@ def register_custom_omegaconf_resolvers():
         "resolve_num_edge_types",
         lambda features_config: len(features_config.edge_types),
     )
+    OmegaConf.register_new_resolver(
+        "divide",
+        lambda x, y: x // y if isinstance(x, int) and isinstance(y, int) else x / y,
+    )

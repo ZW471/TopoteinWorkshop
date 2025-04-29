@@ -23,8 +23,12 @@ sse_types:
 scalar_sse_features:
   - sse_one_hot
   - sse_size
-  - sse_vector_norms
-  - sse_variance_wrt_localized_frame
+  - se_pos_encoding
+  - consecutive_angle
+  - torsional_angle
+  - eigenvalues
+#  - sse_vector_norms
+  - std_wrt_localized_frame
 #  - node_features
 vector_sse_features: []
 
@@ -39,7 +43,7 @@ scalar_pr_features:
   - gyration_r
   - contact_density_and_order
   - eigenvalues
-  - std_wrt_localized_frame
+#  - std_wrt_localized_frame
 
 vector_pr_features: []
 neighborhoods: []

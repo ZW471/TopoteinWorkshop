@@ -111,9 +111,17 @@ def get_input_dim(
         "sse_one_hot": 3,
         "sse_size": 1,
         "sse_vector_norms": 8,
-        "sse_variance_wrt_localized_frame": 3,
+        "std_wrt_localized_frame": 3,
+        "center_pos_encoding": 16,
+        "se_pos_encoding": 20,
+        "consecutive_angle": 4,
+        "torsional_angle": 2,
+        "eigenvalues": 3,
         ### vector cell features ###
         "sse_vectors": 8,
+        "eigenvectors": 3,
+        "consecutive_diff": 2,
+        "pr_com_diff": 3,
         ### scalar protein features ###
         "pr_size": 1,
         "aa_freq": 23,

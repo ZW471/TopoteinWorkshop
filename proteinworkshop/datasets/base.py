@@ -548,7 +548,7 @@ class ProteinDataset(Dataset):
         else:
             fname = f"{self.pdb_codes[idx]}.pt"
 
-        return self._batch_format(torch.load(Path(self.processed_dir) / fname))
+        return self._batch_format(torch.load(Path(self.processed_dir) / fname, weights_only=False))
 
     def _batch_format(self, x: Data) -> Data:
         # Set this to ensure proper batching behaviour

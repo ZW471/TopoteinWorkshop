@@ -137,7 +137,6 @@ def finetune(cfg: DictConfig):
 
     if cfg.get("test"):
         log.info("Starting testing!")
-        log.info("Starting testing!")
         if hasattr(datamodule, "test_dataset_names"):
             splits = datamodule.test_dataset_names
             wandb_logger = copy.deepcopy(trainer.logger)

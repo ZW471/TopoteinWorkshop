@@ -13,20 +13,20 @@ features:
     - N2_3 = B2_3
     - N3_2 = B2_3.T
     - N1_2 = B1_2
-#    - N2_1_outer = B0_2.T @ B0_1 - B1_2.T
+    - N2_1_outer = B0_2.T @ B0_1 - B1_2.T
     - N1_2_outer = (B0_2.T @ B1_0.T - B1_2.T).T
   directed_edges: True
 # global config #
 num_layers: 6 # Number of layers in the model
 emb_dim: 128
 node_s_emb_dim: ${.emb_dim} # Dimension of the node state embeddings
-node_v_emb_dim: ${divide:${.node_s_emb_dim},4} # Dimension of the node vector embeddings
+node_v_emb_dim: ${divide:${.node_s_emb_dim},8} # Dimension of the node vector embeddings
 edge_s_emb_dim: ${divide:${.emb_dim},4} # Dimension of the edge state embeddings
-edge_v_emb_dim: ${divide:${.edge_s_emb_dim},4} # Dimension of the edge vector embeddings
-sse_s_emb_dim: ${divide:${.emb_dim},2}
-sse_v_emb_dim: ${divide:${.sse_s_emb_dim},4}
+edge_v_emb_dim: ${divide:${.edge_s_emb_dim},8} # Dimension of the edge vector embeddings
+sse_s_emb_dim: ${.emb_dim}
+sse_v_emb_dim: ${divide:${.sse_s_emb_dim},8}
 pr_s_emb_dim: ${.emb_dim}
-pr_v_emb_dim: ${divide:${.pr_s_emb_dim},4}
+pr_v_emb_dim: ${divide:${.pr_s_emb_dim},8}
 r_max: 10.0 # Maximum distance for radial basis functions
 num_rbf: 8 # Number of radial basis functions
 activation: silu # Activation function to use in each GCP layer

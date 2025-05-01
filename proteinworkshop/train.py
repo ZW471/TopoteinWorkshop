@@ -32,6 +32,7 @@ from proteinworkshop.models.base import BenchMarkModel
 
 from graphein.ml.datasets.foldcomp_dataset import FoldCompLightningDataModule
 import types
+import collections
 
 graphein.verbose(False)
 lt.monkey_patch()
@@ -202,15 +203,35 @@ def train_model(
         log.info("Logging hyperparameters!")
         utils.logging_utils.log_hyperparameters(object_dict)
 
+
+    if cfg.get("ckpt_path"):
+        log.info(f"Loading weights from checkpoint {cfg.ckpt_path}...")
+        if cfg.trainer.accelerator == "cpu":
+            log.warning(
+                "Loading weights on CPU."
+            )
+            state_dict = torch.load(cfg.ckpt_path, map_location=cfg.trainer.accelerator)["state_dict"]
+        else:
+            state_dict = torch.load(cfg.ckpt_path)["state_dict"]
+
+        encoder_weights = collections.OrderedDict()
+        for k, v in state_dict.items():
+            if k.startswith("encoder"):
+                encoder_weights[k.replace("encoder.", "")] = v
+        log.info(f"Loading encoder weights: {encoder_weights}")
+        err = model.encoder.load_state_dict(encoder_weights, strict=False)
+        log.warning(f"Error loading encoder weights: {err}")
+
     if cfg.get("compile"):
         log.info("Compiling model!")
         model = torch_geometric.compile(model, dynamic=True)
+
 
     no_training = cfg.get("no_training", False)
     if cfg.get("task_name") == "train" and not no_training:
         log.info("Starting training!")
         trainer.fit(
-            model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path")
+            model=model, datamodule=datamodule
         )
         # Log profiler trace
         if isinstance(trainer.profiler, L.pytorch.profilers.PyTorchProfiler):

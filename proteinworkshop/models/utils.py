@@ -110,7 +110,7 @@ def get_input_dim(
         ### scalar cell features ###
         "sse_one_hot": 3,
         "sse_size": 1,
-        "sse_vector_norms": 8,
+        "sse_vector_norms": 6,
         "std_wrt_localized_frame": 3,
         "center_pos_encoding": 16,
         "se_pos_encoding": 20,
@@ -118,7 +118,7 @@ def get_input_dim(
         "torsional_angle": 2,
         "eigenvalues": 3,
         ### vector cell features ###
-        "sse_vectors": 8,
+        "sse_vectors": 6,
         "eigenvectors": 3,
         "consecutive_diff": 2,
         "pr_com_diff": 3,

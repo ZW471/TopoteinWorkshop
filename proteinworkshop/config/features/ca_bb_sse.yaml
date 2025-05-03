@@ -34,11 +34,10 @@ vector_sse_features: []
 
 scalar_pr_features:
   - aa_freq
-  - aa_std
+#  - aa_std
   - sse_freq
-  - sse_std
-  - sse_size_mean
-  - sse_size_std
+#  - sse_std
+  - sse_size_mean_and_std
   - pr_size
   - gyration_r
   - contact_density_and_order

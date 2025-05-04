@@ -6,6 +6,12 @@ features:
     - N1_0 = B0_1.T
     - N0_0_via_1 = A0_1
     - N0_0_via_2 = A0_2
+    - N0_2 = B0_2
+    - N0_3 = B0_3
+    - N2_3 = B2_3
+    - N3_2 = B2_3.T
+    - N2_1_outer = B0_2.T @ B0_1 - B1_2.T
+    - N1_2_outer = (B0_2.T @ B1_0.T - B1_2.T).T
 
 num_layers: 6 # Number of layers in the model
 emb_dim: 128
@@ -16,6 +22,7 @@ model_cfg:
   in_dim0: ${resolve_feature_config_dim:${features},scalar_node_features,${task},true}
   in_dim1: ${resolve_feature_config_dim:${features},scalar_edge_features,${task},true}
   in_dim2: ${resolve_feature_config_dim:${features},scalar_sse_features,${task},true}
+  in_dim3: ${resolve_feature_config_dim:${features},scalar_pr_features,${task},true}
   emb_dim: ${..emb_dim}
   activation: ${..activation}
   num_layers: ${..num_layers}

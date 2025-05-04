@@ -46,6 +46,6 @@ scalar_pr_features:
 
 vector_pr_features: []
 neighborhoods: []
-directed_edges: False
+directed_edges: True
 pure_torch: True
 

@@ -230,11 +230,13 @@ def train_model(
     no_training = cfg.get("no_training", False)
     if cfg.get("task_name") == "train" and not no_training:
         log.info("Starting training!")
+        if cfg.get("log_all", False):
+            wandb.watch(model, log="all", log_freq=1000, log_graph=True)
         trainer.fit(
             model=model, datamodule=datamodule
         )
         # Log profiler trace
-        if isinstance(trainer.profiler, L.pytorch.profilers.PyTorchProfiler):
+        if cfg.get("profiling", False) and isinstance(trainer.profiler, L.pytorch.profilers.PyTorchProfiler):
             profile_art = wandb.Artifact("trace", type="profile")
             for trace in pathlib.Path(trainer.profiler.dirpath).glob("*.pt.trace.json"):
                 profile_art.add_file(trace)

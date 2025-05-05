@@ -4,8 +4,7 @@ features:
   # note: will manually be injected into `/features` via `validate_gcpnet_config()` of `proteinworkshop/configs/config.py`
   vector_node_features: ["orientation"]
   vector_edge_features: ["edge_vectors"]
-  neighborhoods:
-    - N2_0 = B0_2.T
+  neighborhoods: []
   directed_edges: True
 # global config #
 num_layers: 6 # Number of layers in the model

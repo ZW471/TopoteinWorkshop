@@ -5,8 +5,11 @@ import proteinworkshop.constants
 import os
 import warnings
 
-PDB_LIST = ["3eiy", "1hcn", "8py0", "8vth"]
-
+# PDB_LIST = ["3eiy", "1hcn", "8py0", "8vth"]
+PDB_LIST = ["1a0aA00",
+            "1a0cA00",
+            "1a0gA02",
+            "1a0hA01",]
 
 def get_random_protein_safe(pdb=None, offline=True) -> "Protein":
     """Utility/testing function to get a random proteins."""

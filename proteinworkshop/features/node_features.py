@@ -1,6 +1,8 @@
 """Node feature computation functions."""
+import math
 from typing import List, Union
 
+from graphein.protein import ATOM_NUMBERING
 import torch
 import torch.nn.functional as F
 from beartype import beartype as typechecker
@@ -18,7 +20,7 @@ from torch_geometric.data import Batch, Data
 from torch_geometric.nn.pool import knn_graph
 from torch_geometric.utils import softmax
 
-from proteinworkshop.models.utils import flatten_list
+from proteinworkshop.models.utils import flatten_list, safe_norm
 from proteinworkshop.types import OrientationTensor, ScalarNodeFeature
 
 from .sequence_features import amino_acid_one_hot
@@ -83,15 +85,24 @@ def compute_scalar_node_features(
         elif feature == "secondary_structure_one_hot":
             feats.append(sse_onehot(x))
         elif feature == "3di_one_hot":
-            feats.append(torch.nn.functional.one_hot(torch.tensor([item for sub in x["threed_list"] for item in sub], device=x.coords.device), num_classes=20))
+            feats.append(torch.nn.functional.one_hot(x["threed_list"], num_classes=20))
         elif feature == "dssp8_one_hot":
-            feats.append(torch.nn.functional.one_hot(torch.tensor([item for sub in x["sse_list"] for item in sub], device=x.coords.device), num_classes=8))
+            feats.append(torch.nn.functional.one_hot(x["sse_list"], num_classes=8))
         else:
             raise ValueError(f"Node feature {feature} not recognised.")
     feats = [feat.unsqueeze(1) if feat.ndim == 1 else feat for feat in feats]
     # Return concatenated features or original features if no features were computed
     return torch.cat(feats, dim=1) if feats else x.x
 
+def tetrahedral(X):
+    n, origin, c = X[:, ATOM_NUMBERING["N"]], X[:, ATOM_NUMBERING["CA"]], X[:, ATOM_NUMBERING["C"]]
+    c, n = c - origin, n - origin
+    bisector = c + n
+    bisector = bisector / safe_norm(bisector, keepdim=True)
+    prep = torch.cross(c, n)
+    perp = prep / safe_norm(prep, keepdim=True)
+    vec = (-bisector * math.sqrt(1 / 3) - perp * math.sqrt(2 / 3)).unsqueeze(1)
+    return vec
 
 @jaxtyped(typechecker=typechecker)
 def compute_vector_node_features(
@@ -112,11 +123,13 @@ def compute_vector_node_features(
     for feature in vector_features:
         if feature == "orientation":
             vector_node_features.append(orientations(x.coords, x._slice_dict["coords"]))
+        elif feature == "tetrahedral":
+            vector_node_features.append(tetrahedral(x.coords))
         elif feature == "virtual_cb_vector":
             raise NotImplementedError("Virtual CB vector not implemented yet.")
         else:
             raise ValueError(f"Vector feature {feature} not recognised.")
-    x.x_vector_attr = torch.cat(vector_node_features, dim=0)
+    x.x_vector_attr = torch.cat(vector_node_features, dim=1)
     return x
 
 

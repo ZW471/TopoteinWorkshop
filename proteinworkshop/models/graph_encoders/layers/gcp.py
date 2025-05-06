@@ -399,10 +399,11 @@ class GCPEmbedding(nn.Module):
         else:
             self.atom_embedding = None
 
-        self.radial_embedding = partial(
-            radial.compute_rbf, max_distance=cfg.r_max, num_rbf=cfg.num_rbf
-        )
-
+        if cfg.num_rbf > 0:
+            self.radial_embedding = partial(
+                radial.compute_rbf, max_distance=cfg.r_max, num_rbf=cfg.num_rbf
+            )
+        self.cfg = cfg
         self.pre_norm = pre_norm
         if pre_norm:
             self.edge_normalization = GCPLayerNorm(
@@ -468,7 +469,7 @@ class GCPEmbedding(nn.Module):
         )  # [n_edges, 3]
         edge_lengths = torch.linalg.norm(edge_vectors, dim=-1)  # [n_edges, 1]
         edge_rep = ScalarVector(
-            torch.cat((edge_rep.scalar, self.radial_embedding(edge_lengths)), dim=-1),
+            torch.cat((edge_rep.scalar, self.radial_embedding(edge_lengths)), dim=-1) if self.cfg.num_rbf > 0 else edge_rep.scalar,
             edge_rep.vector,
         )
 

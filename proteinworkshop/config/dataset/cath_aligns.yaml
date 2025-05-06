@@ -1,8 +1,8 @@
 datamodule:
   _target_: "topotein_la.datasets.cath_aligns.CATHAlignsDataModule"
   path: ${env.paths.data}/cath-aligns/ # Directory where the dataset is stored
-  pdb_dir: ${env.paths.data}/pdb/ # Directory where raw PDB/mmtf files are stored
-  format: "mmtf" # Format of the raw PDB/MMTF files
+  pdb_dir: ${env.paths.data}/cath-aligns/raw/pdb_v4_3/ # Directory where raw PDB/mmtf files are stored
+  format: "pdb" # Format of the raw PDB/MMTF files
   num_workers: 4 # Number of workers for dataloader
   pin_memory: True # Pin memory for dataloader
   batch_size: 32 # Batch size for dataloader

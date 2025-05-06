@@ -7,6 +7,7 @@ from beartype import beartype as typechecker
 from graphein.protein.tensor.types import CoordTensor, EdgeTensor
 from jaxtyping import jaxtyped
 from omegaconf import ListConfig
+from torch import nn
 from torch_geometric.data import Batch, Data
 
 from proteinworkshop.features.utils import _normalize
@@ -50,8 +51,17 @@ def compute_scalar_edge_features(
         elif feature == "rbf":
             distance = compute_edge_distance(x.pos, x.edge_index)
             feats.append(radial.compute_rbf(distance))
+        elif feature == "rbf_16":
+            distance = compute_edge_distance(x.pos, x.edge_index)
+            feats.append(radial.compute_rbf(distance, num_rbf=16, max_distance=20.0))
         elif feature == "pos_emb":
             feats.append(pos_emb(x.edge_index))
+        elif feature == "dist_pos_emb":
+            distance = compute_edge_distance(x.pos, x.edge_index)
+            pos_enc = DistancePositionalEncoding(num_frequencies=8,
+                                                 max_frequency=5.0,
+                                                 include_original=False).to(x.pos.device)
+            feats.append(pos_enc(distance))
         else:
             raise ValueError(f"Unknown edge feature {feature}")
     feats = [feat.unsqueeze(1) if feat.ndim == 1 else feat for feat in feats]
@@ -71,6 +81,45 @@ def compute_vector_edge_features(
             raise ValueError(f"Vector feature {feature} not recognised.")
     x.edge_vector_attr = torch.cat(vector_edge_features, dim=0)
     return x
+
+class DistancePositionalEncoding(nn.Module):
+    def __init__(self, num_frequencies: int = 16,
+                 max_frequency: float = 100.0,
+                 include_original: bool = False):
+        """
+        Args:
+          num_frequencies: how many different ω_k to use
+          max_frequency: the largest ω_k (you can also space them logarithmically)
+          include_original: if True, appends the raw d itself to the encoding
+        """
+        super().__init__()
+        self.num_frequencies = num_frequencies
+        # here we space frequencies linearly from 1.0 up to max_frequency
+        self.register_buffer('freq_bands',
+                             torch.linspace(1.0, max_frequency, num_frequencies))
+
+        self.include_original = include_original
+
+    def forward(self, d: torch.Tensor):
+        """
+        d: tensor of shape (E,) or (B, E) containing distances
+        returns: tensor of shape (…, D) where D = num_frequencies*2 (+1 if include_original)
+        """
+        # ensure shape (..., 1)
+        orig_shape = d.shape
+        d = d.unsqueeze(-1)  # now (..., 1)
+
+        # compute angles: (..., num_frequencies)
+        # you can also multiply by 2*pi here if you like
+        angles = d * self.freq_bands  # broadcast: (…, 1) * (num_frequencies,) → (…, num_frequencies)
+
+        # stack sin and cos: → (…, num_frequencies*2)
+        pe = torch.cat([angles.sin(), angles.cos()], dim=-1)
+
+        if self.include_original:
+            pe = torch.cat([d, pe], dim=-1)
+
+        return pe
 
 
 @jaxtyped(typechecker=typechecker)

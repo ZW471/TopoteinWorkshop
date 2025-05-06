@@ -84,6 +84,7 @@ def get_input_dim(
         # TODO fill-in remaining scalar node features
         ### vector node features ###
         "orientation": 2,
+        "tetrahedral": 1,
         # TODO fill-in remaining vector node features
         ### scalar edge features ###
         "edge_distance": 1,
@@ -103,6 +104,8 @@ def get_input_dim(
         ),
         "sequence_distance": 1,
         "rbf": 8,
+        "rbf_16": 16,
+        "dist_pos_emb": 16,
         # TODO fill-in remaining scalar edge features
         ### vector edge features ###
         "edge_vectors": 1,

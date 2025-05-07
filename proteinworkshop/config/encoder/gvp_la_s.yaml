@@ -10,3 +10,4 @@ v_dim_edge: 8  # Dimension of the edge vector embeddings
 num_layers: 6  # Number of layers in the model
 pool: "sum"  # Global pooling method to be used
 residual: True  # Whether to use residual connections
+activations: "silu"

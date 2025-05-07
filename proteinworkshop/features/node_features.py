@@ -57,7 +57,7 @@ def compute_scalar_node_features(
     feats = []
     for feature in node_features:
         if feature == "amino_acid_one_hot":
-            feats.append(amino_acid_one_hot(x, num_classes=23))
+            feats.append(amino_acid_one_hot(x, num_classes=23).float())
         elif feature == "alpha":
             feats.append(alpha(x.coords, x.batch, rad=True, embed=True))
         elif feature == "kappa":
@@ -85,9 +85,9 @@ def compute_scalar_node_features(
         elif feature == "secondary_structure_one_hot":
             feats.append(sse_onehot(x))
         elif feature == "3di_one_hot":
-            feats.append(torch.nn.functional.one_hot(x["threed_list"], num_classes=20))
+            feats.append(torch.nn.functional.one_hot(x["threed_list"], num_classes=20).float())
         elif feature == "dssp8_one_hot":
-            feats.append(torch.nn.functional.one_hot(x["sse_list"], num_classes=8))
+            feats.append(torch.nn.functional.one_hot(x["sse_list"], num_classes=8).float())
         else:
             raise ValueError(f"Node feature {feature} not recognised.")
     feats = [feat.unsqueeze(1) if feat.ndim == 1 else feat for feat in feats]

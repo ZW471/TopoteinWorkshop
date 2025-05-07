@@ -57,11 +57,11 @@ class RemoveMissingCa(T.BaseTransform):
         if hasattr(data, "sse"):
             data.sse = data.sse[mask]
 
-        if hasattr(data, "sse_list"):
-            data.sse_list = data.sse_list[mask]
+        if hasattr(data, "dssp8_type"):
+            data.dssp8_type = data.dssp8_type[mask]
 
-        if hasattr(data, "threed_list"):
-            data.threed_list = data.threed_list[mask]
+        if hasattr(data, "threeDi_type"):
+            data.threeDi_type = data.threeDi_type[mask]
 
         return data
 

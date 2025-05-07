@@ -13,7 +13,8 @@ class SequenceNoiseTransform(BaseTransform):
     def __init__(
         self,
         corruption_rate: float,
-        corruption_strategy: Literal["mutate", "mask"],
+        corruption_strategy: Literal["mutate", "mask", "both"],
+        corruption_target: Literal["AA", "3Di", "DSSP8"] = "AA", 
     ):
         """Corrupts the sequence of a protein by randomly flipping residues to
         another type or masking them.
@@ -36,6 +37,18 @@ class SequenceNoiseTransform(BaseTransform):
         """
         self.corruption_rate = corruption_rate
         self.corruption_strategy = corruption_strategy
+        corruption_key_mapping = {
+            "AA": "residue_type",
+            "3Di": "threeDi_type",
+            "DSSP8": "dssp8_type",
+        }
+        corrpution_range_mapping = { # TODO: probably best to not hardcode this
+            "AA": (0, 23),
+            "3Di": (0, 20),
+            "DSSP8": (0, 8),
+        }
+        self.corruption_key = corruption_key_mapping[corruption_target]
+        self.corruption_range = corrpution_range_mapping[corruption_target]
 
     @property
     def required_attributes(self) -> Set[str]:
@@ -43,36 +56,51 @@ class SequenceNoiseTransform(BaseTransform):
 
     @typechecker
     def __call__(self, x: Union[Data, Protein]) -> Union[Data, Protein]:
-        x.residue_type_uncorrupted = copy.deepcopy(x.residue_type)
+        x[f"{self.corruption_key}_uncorrupted"] = copy.deepcopy(x[self.corruption_key])
         # Get indices of residues to corrupt
         indices = torch.randint(
             0,
-            x.residue_type.shape[0],
-            (int(x.residue_type.shape[0] * self.corruption_rate),),
-            device=x.residue_type.device,
+            x[self.corruption_key].shape[0],
+            (int(x[self.corruption_key].shape[0] * self.corruption_rate),),
+            device=x[self.corruption_key].device,
         ).long()
 
         # Apply corruption
         if self.corruption_strategy == "mutate":
             # Set indices to random residue type
-            x.residue_type[indices] = torch.randint(
-                0,
-                23,  # TODO: probably best to not hardcode this
+            x[self.corruption_key][indices] = torch.randint(
+                self.corruption_range[0],
+                self.corruption_range[1],
                 (indices.shape[0],),
-                device=x.residue_type.device,
+                device=x[self.corruption_key].device,
             )
         elif self.corruption_strategy == "mask":
             # Set indices to 23 -> "UNK"
-            x.residue_type[
+            x[self.corruption_key][
                 indices
-            ] = 23  # TODO: probably best to not hardcode this
+            ] = self.corruption_range[1]
+        elif self.corruption_strategy == "both":
+            # Set indices to random residue type
+            x[self.corruption_key][indices] = torch.randint(
+                self.corruption_range[0],
+                self.corruption_range[1],
+                (indices.shape[0],),
+                device=x[self.corruption_key].device,
+            )
+            # Set indices to 23 -> "UNK"
+            x[self.corruption_key][
+                ~indices
+            ] = self.corruption_range[1]
         else:
             raise NotImplementedError(
                 f"Corruption strategy: {self.corruption_strategy} not supported."
             )
         # Get indices of applied corruptions
-        index = torch.zeros(x.residue_type.shape[0])
-        index[indices] = 1
+        if self.corruption_strategy != "both":
+            index = torch.zeros(x[self.corruption_key].shape[0])
+            index[indices] = 1
+        else:
+            index = torch.ones(x[self.corruption_key].shape[0])
         x.sequence_corruption_mask = index.bool()
 
         return x

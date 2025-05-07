@@ -70,8 +70,8 @@ def get_input_dim(
         ### scalar node features ###
         "amino_acid_one_hot": 23,  # 20 + 3
         "secondary_structure_one_hot": 3,
-        "dssp8_one_hot": 8,
-        "3di_one_hot": 20,
+        "dssp8_one_hot": 9,  # extra dim for unknown
+        "3di_one_hot": 21, # extra dim for unknown
         "kappa": 2,
         "alpha": 2,
         "dihedrals": 6,

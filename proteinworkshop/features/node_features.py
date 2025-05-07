@@ -85,9 +85,9 @@ def compute_scalar_node_features(
         elif feature == "secondary_structure_one_hot":
             feats.append(sse_onehot(x))
         elif feature == "3di_one_hot":
-            feats.append(torch.nn.functional.one_hot(x["threed_list"], num_classes=20).float())
+            feats.append(torch.nn.functional.one_hot(x["threeDi_type"], num_classes=21).float())
         elif feature == "dssp8_one_hot":
-            feats.append(torch.nn.functional.one_hot(x["sse_list"], num_classes=8).float())
+            feats.append(torch.nn.functional.one_hot(x["dssp8_type"], num_classes=9).float())
         else:
             raise ValueError(f"Node feature {feature} not recognised.")
     feats = [feat.unsqueeze(1) if feat.ndim == 1 else feat for feat in feats]

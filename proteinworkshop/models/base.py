@@ -155,16 +155,16 @@ class BaseModel(L.LightningModule, abc.ABC):
                     )
             elif output == "torsional_noise":
                 labels["torsional_noise"] = batch.torsional_noise
-            elif output == "residue_type":
+            elif output.endswith("_type"):
                 # If we have stored uncorrupted labels, use those
-                if hasattr(batch, "residue_type_uncorrupted"):
-                    labels["residue_type"] = batch.residue_type_uncorrupted
+                if hasattr(batch, f"{output}_uncorrupted"):
+                    labels[output] = batch[f"{output}_uncorrupted"]
                 # Otherwise, use residue types
                 else:
-                    labels["residue_type"] = batch.residue_type
+                    labels[output] = batch[output]
                 # If we have stored a mask, apply it
                 if hasattr(batch, "sequence_corruption_mask"):
-                    labels["residue_type"] = labels["residue_type"][
+                    labels[output] = labels[output][
                         batch.sequence_corruption_mask
                     ]
             elif output == "pos":
@@ -563,9 +563,11 @@ class BenchMarkModel(BaseModel):
             ).view(-1, 6)
         # If we have a mask, apply it
         if hasattr(batch, "sequence_corruption_mask"):
-            output["residue_type"] = output["residue_type"][
-                batch.sequence_corruption_mask
-            ]
+            for key in output.keys():
+                if key.endswith("_type"):
+                    output[key] = output[key][
+                        batch.sequence_corruption_mask
+                    ]
 
         return output
 

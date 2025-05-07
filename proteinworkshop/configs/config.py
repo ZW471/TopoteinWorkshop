@@ -30,6 +30,7 @@ SELF_SUPERVISION_OUTPUTS = [
     "pos",
     "edge_distance",
     "b_factor",
+    "threeDi_type",
 ]
 
 CLASSIFICATION_OUTPUTS = ["graph_label", "node_label"]
@@ -233,6 +234,7 @@ def validate_classification_config(cfg: DictConfig):
         "inverse_folding",
         "backbone_dihedral_angle_prediction",
         "sequence_denoising",
+        "sequence_denoising_3Di",
         "structure_denoising",
         "sequence_structure_denoising",
         "edge_distance_prediction",

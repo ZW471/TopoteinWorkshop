@@ -1,0 +1,43 @@
+# @package _global_
+
+defaults:
+  - override /metrics:
+      - accuracy
+      - f1_score
+      - perplexity
+  - override /decoder:
+      - threeDi_type
+  - override /transforms:
+      - remove_missing_ca
+      - sequence_denoising
+
+transforms:
+  sequence_denoising:
+    corruption_rate: 0.5
+    corruption_strategy: "both"
+    corruption_target: "3Di"
+
+dataset:
+  num_classes: 21
+
+callbacks:
+  early_stopping:
+    monitor: val/threeDi_type/accuracy
+    mode: "max"
+  model_checkpoint:
+    monitor: val/threeDi_type/accuracy
+    mode: "max"
+
+task:
+  task: "sequence_denoising"
+  classification_type: "multiclass"
+  metric_average: "micro"
+
+  losses:
+    threeDi_type: cross_entropy
+  label_smoothing: 0.0
+
+  output:
+    - threeDi_type
+  supervise_on:
+    - threeDi_type

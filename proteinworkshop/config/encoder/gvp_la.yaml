@@ -1,0 +1,12 @@
+_target_: topotein_la.models.graph_encoders.gvp.GVPGNNModel
+s_in_dim: ${resolve_feature_config_dim:${features},scalar_node_features,${task},true}
+v_in_dim: ${resolve_feature_config_dim:${features},vector_node_features,${task},false}
+s_in_dim_edge: ${resolve_feature_config_dim:${features},scalar_edge_features,${task},true}
+v_in_dim_edge: ${resolve_feature_config_dim:${features},vector_edge_features,${task},false}
+s_dim: 256  # Dimension of the node state embeddings
+v_dim: 32  # Dimension of the node vector embeddings
+s_dim_edge: 64  # Dimension of the edge scalar embeddings
+v_dim_edge: 2  # Dimension of the edge vector embeddings
+num_layers: 6  # Number of layers in the model
+pool: "sum"  # Global pooling method to be used
+residual: True  # Whether to use residual connections

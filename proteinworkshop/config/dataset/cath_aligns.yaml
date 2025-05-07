@@ -1,7 +1,7 @@
 datamodule:
   _target_: "topotein_la.datasets.cath_aligns.CATHAlignsDataModule"
   path: ${env.paths.data}/cath-aligns/ # Directory where the dataset is stored
-  pdb_dir: ${env.paths.data}/cath-aligns/raw/pdb_v4_3/ # Directory where raw PDB/mmtf files are stored
+  pdb_dir: ${env.paths.data}/cath-aligns/raw/ # Directory where raw PDB/mmtf files are stored
   format: "pdb" # Format of the raw PDB/MMTF files
   num_workers: 4 # Number of workers for dataloader
   pin_memory: True # Pin memory for dataloader
@@ -10,4 +10,5 @@ datamodule:
   transforms: ${transforms} # Transforms to apply to dataset examples
   overwrite: False # Whether to overwrite the dataset if it already exists
   in_memory: True # Whether to load the entire dataset into memory
+  split: "pretrain"  # Or embed
 num_classes: 23 # Number of classes

@@ -4,7 +4,7 @@ features:
   # note: will manually be injected into `/features` via `validate_gcpnet_config()` of `proteinworkshop/configs/config.py`
   vector_node_features: ["orientation"]
   vector_edge_features: ["edge_vectors"]
-  vector_sse_features: ["sse_vectors"]
+  vector_sse_features: ["sse_vectors", "consecutive_diff", "pr_com_diff", "eigenvectors"]
   scalar_pr_features: []
   neighborhoods:
     # - N2_0 = B2.T @ B1.T / 2

@@ -18,7 +18,7 @@ hydra:
     name: ${hydra.job.name}
     mem_gb: 64 # memory in GB
     nodes: 1
-    partition: pascal
+    partition: ampere
     account: LIO-SL3-GPU
     gres: gpu:1
     cpus_per_task: ${dataset.datamodule.num_workers}
@@ -30,4 +30,6 @@ hydra:
     setup:
       - ". /etc/profile.d/modules.sh                # Leave this line (enables the module command)"
       - "module load rhel8/default-amp              # REQUIRED - loads the basic environment]"
+      - "source ~/.bashrc"
+      - "conda activate Topotein"
 #    submitit_folder: ./exp/${now:%Y.%m.%d}/${now:%H%M%S}_${agent_cfg.experiment}/.slurm

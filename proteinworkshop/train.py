@@ -6,20 +6,10 @@ import copy
 import sys
 from typing import List, Optional
 
-import graphein
 import hydra
-import lightning as L
-import lovely_tensors as lt
 import torch
 import torch.nn as nn
-import torch_geometric
-from graphein.protein.tensor.dataloader import ProteinDataLoader
-from lightning.pytorch.callbacks import Callback
-from lightning.pytorch.loggers import Logger
-from loguru import logger as log
 from omegaconf import DictConfig
-
-import wandb
 import pathlib
 
 from proteinworkshop import (
@@ -27,27 +17,22 @@ from proteinworkshop import (
     register_custom_omegaconf_resolvers,
     utils,
 )
-from proteinworkshop.configs import config
-from proteinworkshop.models.base import BenchMarkModel
-
-from graphein.ml.datasets.foldcomp_dataset import FoldCompLightningDataModule
 import types
 import collections
 
-graphein.verbose(False)
-lt.monkey_patch()
-
 
 def _num_training_steps(
-    train_dataset: ProteinDataLoader, trainer: L.Trainer
+        train_dataset, trainer
 ) -> int:
+
+    from loguru import logger as log
     """
     Returns total training steps inferred from datamodule and devices.
 
     :param train_dataset: Training dataloader
     :type train_dataset: ProteinDataLoader
     :param trainer: Lightning trainer
-    :type trainer: L.Trainer
+    :type trainer: lightning.pytorch.Trainer
     :return: Total number of training steps
     :rtype: int
     """
@@ -64,16 +49,18 @@ def _num_training_steps(
 
     num_devices = max(1, trainer.num_devices)
     effective_batch_size = (
-        train_dataset.batch_size
-        * trainer.accumulate_grad_batches
-        * num_devices
+            train_dataset.batch_size
+            * trainer.accumulate_grad_batches
+            * num_devices
     )
     return (dataset_size // effective_batch_size) * trainer.max_epochs
 
 
 def train_model(
-    cfg: DictConfig, encoder: Optional[nn.Module] = None
+        cfg: DictConfig, encoder: Optional[nn.Module] = None
 ):  # sourcery skip: extract-method
+
+    from loguru import logger as log
     """
     Trains a model from a config.
 
@@ -101,11 +88,14 @@ def train_model(
     :type encoder: Optional[nn.Module]
     """
     # set seed for random number generators in pytorch, numpy and python.random
+    import lightning as L
     L.seed_everything(cfg.seed)
 
     log.info(
         f"Instantiating datamodule: <{cfg.dataset.datamodule._target_}..."
     )
+    import lightning as L
+    from graphein.ml.datasets.foldcomp_dataset import FoldCompLightningDataModule
     datamodule: L.LightningDataModule = hydra.utils.instantiate(
         cfg.dataset.datamodule
     )
@@ -141,15 +131,16 @@ def train_model(
     logger: List[Logger] = utils.loggers.instantiate_loggers(cfg.get("logger"))
 
     log.info("Instantiating trainer...")
+    import lightning as L
     trainer: L.Trainer = hydra.utils.instantiate(
         cfg.trainer, callbacks=callbacks, logger=logger
     )
 
     if cfg.get("scheduler"):
         if (
-            cfg.scheduler.scheduler._target_
-            == "flash.core.optimizers.LinearWarmupCosineAnnealingLR"
-            and cfg.scheduler.interval == "step"
+                cfg.scheduler.scheduler._target_
+                == "flash.core.optimizers.LinearWarmupCosineAnnealingLR"
+                and cfg.scheduler.interval == "step"
         ):
             datamodule.setup()  # type: ignore
             num_steps = _num_training_steps(
@@ -159,12 +150,14 @@ def train_model(
                 f"Setting number of training steps in scheduler to: {num_steps}"
             )
             cfg.scheduler.scheduler.warmup_epochs = (
-                num_steps / trainer.max_epochs
+                    num_steps / trainer.max_epochs
             )
             cfg.scheduler.scheduler.max_epochs = num_steps
             log.info(cfg.scheduler)
 
     log.info("Instantiating model...")
+    import lightning as L
+    from proteinworkshop.models.base import BenchMarkModel
     model: L.LightningModule = BenchMarkModel(cfg)
 
     if encoder is not None:
@@ -224,6 +217,7 @@ def train_model(
 
     if cfg.get("compile"):
         log.info("Compiling model!")
+        import torch_geometric
         model = torch_geometric.compile(model, dynamic=True)
 
 
@@ -231,12 +225,15 @@ def train_model(
     if cfg.get("task_name") == "train" and not no_training:
         log.info("Starting training!")
         if cfg.get("log_all", False):
+            import wandb
             wandb.watch(model, log="all", log_freq=1000, log_graph=True)
         trainer.fit(
             model=model, datamodule=datamodule
         )
         # Log profiler trace
+        import lightning as L
         if cfg.get("profiling", False) and isinstance(trainer.profiler, L.pytorch.profilers.PyTorchProfiler):
+            import wandb
             profile_art = wandb.Artifact("trace", type="profile")
             for trace in pathlib.Path(trainer.profiler.dirpath).glob("*.pt.trace.json"):
                 profile_art.add_file(trace)
@@ -257,6 +254,7 @@ def train_model(
                 )[0]
                 results = {f"{k}/{split}": v for k, v in results.items()}
                 log.info(f"{split}: {results}")
+                import wandb
                 wandb_logger.log_metrics(results)
         else:
             trainer.test(model=model, datamodule=datamodule, ckpt_path="best" if not no_training else cfg.get("ckpt_path"))
@@ -270,6 +268,25 @@ def train_model(
 )
 def _main(cfg: DictConfig) -> None:
     """Load and validate the hydra config."""
+    # Import and initialize modules that might create thread locks here
+    # to avoid pickling issues with submitit
+    import graphein
+    import lightning as L
+    import lovely_tensors as lt
+    import torch_geometric
+    from graphein.protein.tensor.dataloader import ProteinDataLoader
+    from lightning.pytorch.callbacks import Callback
+    from lightning.pytorch.loggers import Logger
+    from graphein.ml.datasets.foldcomp_dataset import FoldCompLightningDataModule
+    from proteinworkshop.configs import config
+    from proteinworkshop.models.base import BenchMarkModel
+    import wandb
+
+    from loguru import logger as log
+
+    graphein.verbose(False)
+    lt.monkey_patch()
+
     utils.extras(cfg)
     cfg = config.validate_config(cfg)
     train_model(cfg)

@@ -1,0 +1,24 @@
+# @package _global_
+
+# For general info:
+#   c.f. https://hydra.cc/docs/plugins/submitit_launcher/#internaldocs-banner
+# For documentation on submitit launcher variables:
+#   c.f. https://github.com/facebookresearch/hydra/blob/main/plugins/hydra_submitit_launcher/hydra_plugins/hydra_submitit_launcher/config.py
+# For running use:
+#   python myscript.py myparam="bla" +launcher=csd3_ampere --multirun
+
+# @package _global_
+defaults:
+  - override /trainer: cpu
+  - override /hydra/launcher: submitit_local # NOTE: Requires `pip install submitit`
+
+hydra:
+  launcher:
+    submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+    timeout_min: 60
+    cpus_per_task: 1
+    gpus_per_node: 0
+    tasks_per_node: 1
+    mem_gb: 4
+    nodes: 1
+    name: ${hydra.job.name}

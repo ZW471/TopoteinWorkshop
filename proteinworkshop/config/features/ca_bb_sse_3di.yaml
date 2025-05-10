@@ -1,0 +1,51 @@
+_target_: topotein.features.factory.TopoteinFeaturiser
+representation: CA
+scalar_node_features:
+  - 3di_one_hot
+  - sequence_positional_encoding
+  - alpha
+  - kappa
+  - dihedrals
+#  - secondary_structure_one_hot
+vector_node_features: []
+edge_types:
+  - knn_16
+scalar_edge_features:
+  - edge_distance
+#  - rbf
+#  - node_features
+# - sequence_distance
+vector_edge_features: []
+sse_types:
+  - H
+  - E
+  - C
+scalar_sse_features:
+  - sse_one_hot # 3
+  - sse_size # 1
+  - se_pos_encoding # 20
+  - consecutive_angle # 4
+  - torsional_angle # 2
+  - eigenvalues
+#  - sse_vector_norms
+  - std_wrt_localized_frame
+#  - node_features
+vector_sse_features: []
+
+scalar_pr_features:
+#  - aa_freq
+#  - aa_std
+  - sse_freq
+#  - sse_std
+  - sse_size_mean_and_std
+  - pr_size
+  - gyration_r
+  - contact_density_and_order
+  - eigenvalues
+#  - std_wrt_localized_frame
+
+vector_pr_features: []
+neighborhoods: []
+directed_edges: True
+pure_torch: True
+

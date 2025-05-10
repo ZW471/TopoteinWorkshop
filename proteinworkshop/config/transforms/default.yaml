@@ -1,3 +1,4 @@
 defaults:
-  - remove_missing_ca.yaml
+  - attach_3di
+  - remove_missing_ca
   - _self_

@@ -1,0 +1,20 @@
+_target_: proteinworkshop.features.factory.ProteinFeaturiser
+representation: CA
+scalar_node_features:
+#  - amino_acid_one_hot
+  - 3di_one_hot
+#  - dssp8_one_hot
+#  - sequence_positional_encoding
+#  - alpha
+#  - kappa
+#  - dihedrals
+vector_node_features:
+  - orientation
+  - tetrahedral
+edge_types:
+  - eps_10
+scalar_edge_features:
+  - rbf_16
+  - dist_pos_emb
+vector_edge_features:
+  - edge_vectors

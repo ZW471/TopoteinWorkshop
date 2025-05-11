@@ -9,7 +9,7 @@ defaults:
       - threeDi_type
   - override /transforms:
       - default
-      - sequence_denoising
+      - sequence_denoising_3di
 
 transforms:
   sequence_denoising:

@@ -1,0 +1,21 @@
+# @package _global_
+
+defaults:
+  - _self_
+  - /decoder:
+      - threeDi_type
+  - /metrics@threeDi_type: accuracy
+  - /task@losses@threeDi_type: null
+  - /transforms:
+      - attach_3di
+      - remove_missing_ca
+      - nn_sequence_denoising_3di
+
+task:
+  losses:
+    threeDi_type: cross_entropy
+
+  output: ${oc.dict.keys:task.losses}
+  supervise_on: ${oc.dict.keys:task.losses}
+  aux_loss_coefficient:
+    threeDi_type: 0.1

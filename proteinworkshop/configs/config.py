@@ -234,7 +234,7 @@ def validate_classification_config(cfg: DictConfig):
         "inverse_folding",
         "backbone_dihedral_angle_prediction",
         "sequence_denoising",
-        "sequence_denoising_3Di",
+        "sequence_denoising_3di",
         "structure_denoising",
         "sequence_structure_denoising",
         "edge_distance_prediction",

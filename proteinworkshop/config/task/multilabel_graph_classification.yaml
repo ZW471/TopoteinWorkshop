@@ -10,7 +10,7 @@ defaults:
   - override /decoder:
       - graph_label
   - override /transforms:
-    - remove_missing_ca
+    - default
     - multihot_label_encoding
 
 metrics:

@@ -6,7 +6,7 @@ defaults:
   - override /decoder:
       - dihedrals
   - override /transforms:
-      - remove_missing_ca
+      - default
       - backbone_dihedral_angles
 
 dataset:

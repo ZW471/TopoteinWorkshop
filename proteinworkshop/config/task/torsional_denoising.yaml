@@ -7,7 +7,7 @@ defaults:
       #- dihedrals
       - torsional_noise
   - override /transforms:
-      - remove_missing_ca
+      - default
       - torsional_denoising
 
 dataset:

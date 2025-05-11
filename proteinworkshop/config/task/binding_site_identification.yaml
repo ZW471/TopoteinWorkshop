@@ -9,7 +9,7 @@ defaults:
   - override /decoder:
       - node_label
   - override /transforms:
-      - remove_missing_ca
+      - default
       - binding_site_prediction
 
 transforms:

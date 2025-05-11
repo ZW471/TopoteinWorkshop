@@ -6,9 +6,11 @@ scalar_node_features:
   - alpha
   - kappa
   - dihedrals
-vector_node_features: []
+vector_node_features: 
+  - orientation
 edge_types:
   - knn_16
 scalar_edge_features:
   - edge_distance
-vector_edge_features: []
+vector_edge_features: 
+  - edge_vectors

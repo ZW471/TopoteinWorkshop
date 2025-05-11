@@ -8,7 +8,7 @@ defaults:
       - pos_equiv
       - residue_type
   - override /transforms:
-      - remove_missing_ca
+      - default
       - structure_denoising
       - sequence_denoising
 

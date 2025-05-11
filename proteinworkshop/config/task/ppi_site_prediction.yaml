@@ -11,6 +11,7 @@ defaults:
   - override /decoder:
       - node_label
   - override /transforms:
+      - attach_3di
       - remove_missing_ca
       - ppi_site_prediction
 

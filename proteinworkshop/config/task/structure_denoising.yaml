@@ -6,7 +6,7 @@ defaults:
   - override /decoder:
       - pos_equiv
   - override /transforms:
-      - remove_missing_ca
+      - default
       - structure_denoising
 
 dataset:

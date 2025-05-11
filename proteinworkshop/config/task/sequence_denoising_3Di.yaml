@@ -8,7 +8,7 @@ defaults:
   - override /decoder:
       - threeDi_type
   - override /transforms:
-      - remove_missing_ca
+      - default
       - sequence_denoising
 
 transforms:

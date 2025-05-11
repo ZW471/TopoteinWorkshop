@@ -4,10 +4,8 @@ features:
   neighborhoods:
     - N2_0 = B0_2.T
     - N1_0 = B1_0
-    - N3_0 = B0_3.T
     - N0_0_via_1 = A0_1
     - N0_0_via_2 = A0_2
-    - N0_0_via_3 = A0_3
 #  directed_edge: False
 
 num_layers: 6 # Number of layers in the model
@@ -19,7 +17,6 @@ model_cfg:
   in_dim0: ${resolve_feature_config_dim:${features},scalar_node_features,${task},true}
   in_dim1: ${resolve_feature_config_dim:${features},scalar_edge_features,${task},true}
   in_dim2: ${resolve_feature_config_dim:${features},scalar_sse_features,${task},true}
-  in_dim3: ${resolve_feature_config_dim:${features},scalar_pr_features,${task},true}
   emb_dim: ${..emb_dim}
   activation: ${..activation}
   num_layers: ${..num_layers}

@@ -14,6 +14,7 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 from torch_geometric.data import Batch
 from torch_geometric.utils import to_dense_batch
+from torchmetrics.classification import MulticlassAccuracy
 
 from proteinworkshop.models.utils import get_loss
 from proteinworkshop.types import EncoderOutput, Label, ModelOutput
@@ -320,17 +321,24 @@ class BaseModel(L.LightningModule, abc.ABC):
             "dihedrals",
             "torsional_noise",
         }
-        CATEGORICAL_OUTPUTS: Set[str] = {"residue_type"}
+        CATEGORICAL_OUTPUTS: Set[str] = {"residue_type", "threeDi_type"}
+        NUM_CLASSES: Dict[CATEGORICAL_OUTPUTS, int] = {
+            "residue_type": 23,
+            "threeDi_type": 21,
+            "dssp8_type": 9
+        }
 
         metric_names = []
         for metric_name, metric_conf in self.config.metrics.items():
             for output in self.config.task.output:
                 for stage in {"train", "val", "test"}:
                     metric = hydra.utils.instantiate(metric_conf)
-                    if output == "residue_type":
+                    if output.endswith("_type"):
                         if metric_name not in {"accuracy", "perplexity"}:
                             continue
-                        metric.num_classes = 23
+                        if output not in NUM_CLASSES.keys():
+                            raise ValueError(f"Invalid categorical output {output}. Available outputs are: {NUM_CLASSES.keys()}")
+                        metric.num_classes = NUM_CLASSES[output]
                         metric.task = "multiclass"
 
                     # Skip incompatible metrics
@@ -385,6 +393,9 @@ class BaseModel(L.LightningModule, abc.ABC):
                         metric = getattr(self, f"{stage}_{output}_{m}")
                         pred = y_hat[output]
                         target = y[output]
+
+                        if isinstance(metric, MulticlassAccuracy) and len(pred.shape) > 1:
+                            assert metric.num_classes == pred.shape[-1], f"Wrong number of classes for {output}. Expected {metric.num_classes}, got {pred.shape[-1]}"
 
                         if m == "perplexity":
                             pred = to_dense_batch(pred, batch.batch)[0]
@@ -635,7 +646,7 @@ class BenchMarkModel(BaseModel):
         skip_flag = torch.zeros(
             (), device=self.device, dtype=torch.bool
         )  # NOTE: for skipping batches in a multi-device setting
-        
+
         try:
             y = self.get_labels(batch)
             y_hat = self(batch)
@@ -660,7 +671,7 @@ class BenchMarkModel(BaseModel):
             else:
                 if not torch_dist.is_initialized():
                     raise e
-                
+
         # NOTE: for skipping batches in a multi-device setting
         # credit: https://github.com/Lightning-AI/lightning/issues/5243#issuecomment-1553404417
         if torch_dist.is_initialized():

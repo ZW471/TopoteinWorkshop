@@ -56,7 +56,8 @@ class SequenceNoiseTransform(BaseTransform):
 
     @typechecker
     def __call__(self, x: Union[Data, Protein]) -> Union[Data, Protein]:
-        x[f"{self.corruption_key}_uncorrupted"] = copy.deepcopy(x[self.corruption_key])
+        if not hasattr(x, f"{self.corruption_key}_uncorrupted"):
+            x[f"{self.corruption_key}_uncorrupted"] = x[self.corruption_key].clone()
         # Get indices of residues to corrupt
         indices = torch.randint(
             0,

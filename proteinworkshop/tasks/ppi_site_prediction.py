@@ -92,7 +92,14 @@ class BindingSiteTransform(T.BaseTransform):
         del data.graph_y
         # Subset the data to only the target chains
         data.coords = target_struct
-        data.residue_type = data.residue_type[mask]
+        # Apply mask to all attributes ending with _type
+        for k, v in data.items():
+            if k.endswith('_type'):
+                attr_value = v
+                if hasattr(attr_value, '__getitem__') and not callable(attr_value):
+                    setattr(data, k, attr_value[mask])
+
+
         data.residues = np.array(data.residues)[mask]
         data.residue_id = np.array(data.residue_id)[mask]
         data.chains = data.chains[mask]

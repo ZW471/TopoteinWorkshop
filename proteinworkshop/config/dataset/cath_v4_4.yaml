@@ -7,7 +7,7 @@ datamodule:
   pin_memory: True # Pin memory for dataloader
   batch_size: 32 # Batch size for dataloader
   dataset_fraction: 1.0 # Fraction of the dataset to use
-  transforms: ${transforms:[]}
+  transforms: ${oc.select:transforms,null}
   overwrite: False # Whether to overwrite the dataset if it already exists
   in_memory: True # Whether to load the entire dataset into memory
 num_classes: 23 # Number of classes

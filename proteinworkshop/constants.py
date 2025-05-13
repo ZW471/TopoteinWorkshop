@@ -136,5 +136,10 @@ ZENODO_DATASET_NAMES = [
     "metal_3d",
     "ptm",
 ]
+
 """List of pre-processed datasets for `proteinworkshop` available on Zenodo. For documentation see
 https://github.com/a-r-j/ProteinWorkshop/#datasets"""
+
+EXTRA_DATASET_NAMES = [
+    "cath_v4_4"
+]

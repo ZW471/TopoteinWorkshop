@@ -54,6 +54,7 @@ def main():
             "pdb",
             *constants.FOLDCOMP_DATASET_NAMES,
             *constants.ZENODO_DATASET_NAMES,
+            *constants.EXTRA_DATASET_NAMES
         ],
         help="dataset help",
     )
@@ -140,6 +141,27 @@ def main():
             from .download_processed_data import download_processed_data
 
             download_processed_data(args.dataset)
+        elif args.dataset in constants.EXTRA_DATASET_NAMES:
+            import hydra
+            import omegaconf
+            import os
+
+            config_path = constants.SRC_PATH / "config" / "dataset" / f"{args.dataset}.yaml"
+
+            if not os.path.exists(config_path):
+                raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+            cfg = omegaconf.OmegaConf.load(config_path)
+
+            # Check if the dataset key exists in the configuration
+
+            if "datamodule" in cfg:
+                datamodule = hydra.utils.instantiate(cfg.datamodule)
+                datamodule.download()
+            else:
+                raise KeyError(f"'datamodule' not found in configuration for {args.dataset}")
+
+
         else:
             _valid = "\n\t".join(_dataset_names)
             raise ValueError(

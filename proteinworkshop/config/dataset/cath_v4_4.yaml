@@ -1,0 +1,13 @@
+datamodule:
+  _target_: "topotein.datasets.cath_v4_4.CATHDataModule"
+  path: ${oc.env:DATA_PATH}/cath_v4_4/ # Directory where the dataset is stored
+  pdb_dir: ${oc.env:DATA_PATH}/cath_v4_4/raw # Directory where raw PDB/mmtf files are stored
+  format: "pdb" # Format of the raw PDB/MMTF files
+  num_workers: 10 # Number of workers for dataloader
+  pin_memory: True # Pin memory for dataloader
+  batch_size: 32 # Batch size for dataloader
+  dataset_fraction: 1.0 # Fraction of the dataset to use
+  transforms: ${transforms:[]}
+  overwrite: False # Whether to overwrite the dataset if it already exists
+  in_memory: True # Whether to load the entire dataset into memory
+num_classes: 23 # Number of classes

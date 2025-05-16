@@ -164,7 +164,7 @@ class BaseModel(L.LightningModule, abc.ABC):
                 else:
                     labels[output] = batch[output]
                 # If we have stored a mask, apply it
-                if hasattr(batch, "sequence_corruption_mask"):
+                if hasattr(batch, "sequence_corruption_mask") and hasattr(batch, f"{output}_uncorrupted"):
                     labels[output] = labels[output][
                         batch.sequence_corruption_mask
                     ]
@@ -575,7 +575,7 @@ class BenchMarkModel(BaseModel):
         # If we have a mask, apply it
         if hasattr(batch, "sequence_corruption_mask"):
             for key in output.keys():
-                if key.endswith("_type"):
+                if key.endswith("_type") and hasattr(batch, f"{key}_uncorrupted"):
                     output[key] = output[key][
                         batch.sequence_corruption_mask
                     ]

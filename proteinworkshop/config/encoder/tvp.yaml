@@ -1,6 +1,8 @@
 _target_: topotein.models.graph_encoders.tvp.TVPGNNModel
 features:
   directed_edges: True
+  neighborhoods:
+    - N0_2 = B0_2
 s_in_dim: ${resolve_feature_config_dim:${features},scalar_node_features,${task},true}
 v_in_dim: ${resolve_feature_config_dim:${features},vector_node_features,${task},false}
 s_in_dim_edge: ${resolve_feature_config_dim:${features},scalar_edge_features,${task},true}

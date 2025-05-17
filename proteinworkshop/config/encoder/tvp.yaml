@@ -1,0 +1,19 @@
+_target_: topotein.models.graph_encoders.tvp.TVPGNNModel
+features:
+  directed_edges: True
+s_in_dim: ${resolve_feature_config_dim:${features},scalar_node_features,${task},true}
+v_in_dim: ${resolve_feature_config_dim:${features},vector_node_features,${task},false}
+s_in_dim_edge: ${resolve_feature_config_dim:${features},scalar_edge_features,${task},true}
+v_in_dim_edge: ${resolve_feature_config_dim:${features},vector_edge_features,${task},false}
+s_in_dim_sse: ${resolve_feature_config_dim:${features},scalar_sse_features,${task},true}
+v_in_dim_sse: ${resolve_feature_config_dim:${features},vector_sse_features,${task},false}
+s_dim: 128  # Dimension of the node state embeddings
+v_dim: 16  # Dimension of the node vector embeddings
+s_dim_edge: 32  # Dimension of the edge scalar embeddings
+v_dim_edge: 4  # Dimension of the edge vector embeddings
+s_dim_sse: 128  # Dimension of the node state embeddings
+v_dim_sse: 16  # Dimension of the node vector embeddings
+num_layers: 6  # Number of layers in the model
+pool: "sum"  # Global pooling method to be used
+residual: True  # Whether to use residual connections
+activations: "silu"

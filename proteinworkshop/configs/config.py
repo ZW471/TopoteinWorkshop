@@ -43,6 +43,7 @@ REGRESSION_OUTPUTS = [
     "pos",
     "edge_distance",
     "b_factor",
+    "node_recon"
 ]
 
 OUTPUTS = list(
@@ -240,6 +241,7 @@ def validate_classification_config(cfg: DictConfig):
         "edge_distance_prediction",
         "plddt_prediction",
         "torsional_denoising",
+        "reconstruction"
     ] and set(cfg.task.output).isdisjoint(
         {"graph_label", "node_label", "dataset_features"}
     ):

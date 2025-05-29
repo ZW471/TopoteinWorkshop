@@ -1,0 +1,24 @@
+# @package _global_
+
+defaults:
+  - override /decoder:
+      - node_recon
+
+callbacks:
+  early_stopping:
+    monitor: val/node_recon/mse
+    mode: "min"
+  model_checkpoint:
+    monitor: val/node_recon/mse
+    mode: "min"
+
+task:
+  task: "reconstruction"
+
+  losses:
+    node_recon: mse_loss
+  label_smoothing: 0.0
+  output:
+    - node_recon
+  supervise_on:
+    - node_recon

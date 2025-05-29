@@ -327,9 +327,22 @@ class GOLabeller:
 
     def __call__(self, data: Protein) -> Protein:
         pdb, chain = data.id.split("_")
-        label = self.labels.loc[
+        matches = self.labels.loc[
             (self.labels.pdb == pdb) & (self.labels.chain == chain)
-        ].label.item()
+            ]
+
+        if len(matches) == 0:
+            # No matching records found
+            raise ValueError(f"No label found for protein {pdb}, chain {chain}")
+        elif len(matches) > 1:
+            # Multiple matching records, take the first one
+            raise ValueError(
+                f"Multiple labels found for protein {pdb}, chain {chain}"
+            )
+        else:
+            # Exactly one match
+            label = matches.label.item()
+
         data.graph_y = label
         return data
 

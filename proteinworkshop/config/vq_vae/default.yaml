@@ -1,0 +1,4 @@
+codebook_size: 512
+code_dim: 128
+commitment_cost: 0.25
+ema_decay: 0.99

@@ -1,7 +1,6 @@
 _target_: proteinworkshop.features.factory.ProteinFeaturiser
 representation: CA
 scalar_node_features:
-  - sequence_positional_encoding
   - alpha
   - kappa
   - dihedrals

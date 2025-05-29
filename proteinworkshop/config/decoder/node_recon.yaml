@@ -1,6 +1,8 @@
 node_recon:
   _target_: "proteinworkshop.models.decoders.mlp_decoder.MLPDecoder"
-  hidden_dim: [128, 128]
+  hidden_dim: 
+    - ${vq_vae.code_dim} 
+    - ${vq_vae.code_dim} 
   dropout: 0.0 # dropout rate
   activations: ["relu", "relu", "none"]
   skip: "concat" # Or sum/False

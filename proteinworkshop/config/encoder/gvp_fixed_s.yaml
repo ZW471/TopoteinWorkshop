@@ -3,10 +3,10 @@ s_in_dim: ${resolve_feature_config_dim:${features},scalar_node_features,${task},
 v_in_dim: ${resolve_feature_config_dim:${features},vector_node_features,${task},false}
 s_in_dim_edge: ${resolve_feature_config_dim:${features},scalar_edge_features,${task},true}
 v_in_dim_edge: ${resolve_feature_config_dim:${features},vector_edge_features,${task},false}
-s_dim: 64  # Dimension of the node state embeddings
-v_dim: 8  # Dimension of the node vector embeddings
-s_dim_edge: 16  # Dimension of the edge scalar embeddings
-v_dim_edge: 2  # Dimension of the edge vector embeddings
+s_dim: ${vq_vae.code_dim}   # Dimension of the node state embeddings
+v_dim: ${divide:${.s_dim},8}  # Dimension of the node vector embeddings
+s_dim_edge: ${divide:${.s_dim},4}  # Dimension of the edge scalar embeddings
+v_dim_edge: ${divide:${.s_dim_edge},8}  # Dimension of the edge vector embeddings
 num_layers: 6  # Number of layers in the model
 pool: "sum"  # Global pooling method to be used
 residual: True  # Whether to use residual connections

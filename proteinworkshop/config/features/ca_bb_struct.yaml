@@ -8,7 +8,7 @@ vector_node_features:
   - orientation
   - tetrahedral
 edge_types:
-  - knn_16
+  - eps_10
 scalar_edge_features:
   - edge_distance
   - dist_pos_emb

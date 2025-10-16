@@ -2,7 +2,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+proteinworkshop/runs
+!/proteinworkshop/data/sample_proteins
+.idea
 # C extensions
 *.so
 

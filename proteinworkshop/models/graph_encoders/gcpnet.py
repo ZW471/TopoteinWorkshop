@@ -21,7 +21,7 @@ from proteinworkshop.models.utils import (
     get_aggregation,
     localize,
 )
-from proteinworkshop.types import EncoderOutput
+from proteinworkshop.custom_types import EncoderOutput
 
 
 class GCPNetModel(torch.nn.Module):

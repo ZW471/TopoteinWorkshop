@@ -10,7 +10,7 @@ from torch_geometric.data import Batch
 import proteinworkshop.models.graph_encoders.layers.gvp as gvp
 from proteinworkshop.models.graph_encoders.components import blocks
 from proteinworkshop.models.utils import get_aggregation
-from proteinworkshop.types import EncoderOutput
+from proteinworkshop.custom_types import EncoderOutput
 
 
 class GVPGNNModel(torch.nn.Module):

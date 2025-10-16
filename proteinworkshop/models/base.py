@@ -17,7 +17,7 @@ from torch_geometric.utils import to_dense_batch
 from torchmetrics.classification import MulticlassAccuracy
 
 from proteinworkshop.models.utils import get_loss
-from proteinworkshop.types import EncoderOutput, Label, ModelOutput
+from proteinworkshop.custom_types import EncoderOutput, Label, ModelOutput
 from proteinworkshop.utils.memory_utils import clean_up_torch_gpu_memory
 from proteinworkshop.utils.test import get_random_protein_safe
 

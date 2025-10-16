@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 import esm
 from proteinworkshop.models.utils import get_aggregation
-from proteinworkshop.types import EncoderOutput
+from proteinworkshop.custom_types import EncoderOutput
 
 
 @typechecker

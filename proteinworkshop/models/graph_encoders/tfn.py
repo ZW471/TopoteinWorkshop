@@ -13,7 +13,7 @@ from torch_geometric.utils import to_undirected
 import proteinworkshop.models.graph_encoders.layers.tfn as tfn
 from proteinworkshop.models.graph_encoders.components import radial
 from proteinworkshop.models.utils import get_aggregation
-from proteinworkshop.types import EncoderOutput
+from proteinworkshop.custom_types import EncoderOutput
 
 
 class TensorProductModel(torch.nn.Module):

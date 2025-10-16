@@ -8,7 +8,7 @@ import torch_scatter
 from loguru import logger
 
 from proteinworkshop.models.utils import get_activations
-from proteinworkshop.types import ActivationType
+from proteinworkshop.custom_types import ActivationType
 
 
 class LinearSkipBlock(nn.Module):

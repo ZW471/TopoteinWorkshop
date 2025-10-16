@@ -7,7 +7,7 @@ from torch_geometric.data import Batch
 
 from proteinworkshop.models.graph_encoders.layers.egnn import EGNNLayer
 from proteinworkshop.models.utils import get_aggregation
-from proteinworkshop.types import EncoderOutput
+from proteinworkshop.custom_types import EncoderOutput
 
 
 class EGNNModel(nn.Module):

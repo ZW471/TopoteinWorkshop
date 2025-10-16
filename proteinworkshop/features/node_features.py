@@ -21,7 +21,7 @@ from torch_geometric.nn.pool import knn_graph
 from torch_geometric.utils import softmax
 
 from proteinworkshop.models.utils import flatten_list, safe_norm
-from proteinworkshop.types import OrientationTensor, ScalarNodeFeature
+from proteinworkshop.custom_types import OrientationTensor, ScalarNodeFeature
 
 from .sequence_features import amino_acid_one_hot
 from .utils import _normalize

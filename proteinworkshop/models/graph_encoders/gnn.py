@@ -17,7 +17,7 @@ from torch_geometric.nn import (
 from torch_geometric.nn.conv import MessagePassing
 
 from proteinworkshop.models.utils import get_activations, get_aggregation
-from proteinworkshop.types import ActivationType, EncoderOutput, GNNLayerType
+from proteinworkshop.custom_types import ActivationType, EncoderOutput, GNNLayerType
 
 
 def get_gnn_layer(layer: GNNLayerType) -> MessagePassing:

@@ -158,6 +158,28 @@ class GeneOntologyDataset(ProteinDataModule):
             return getattr(self, f"{split}_ds")
 
         df = self.parse_dataset(split)
+
+        # Filter out samples that don't have processed files available
+        # This ensures consistent dataset sizes across all GPU ranks
+        processed_dir = Path(self.data_dir) / "processed"
+        if not self.overwrite and processed_dir.exists():
+            available_mask = []
+            for pdb, chain in zip(df.pdb, df.chain):
+                processed_file = processed_dir / f"{pdb}_{chain}.pt"
+                available_mask.append(processed_file.exists())
+
+            initial_count = len(df)
+            df = df[available_mask].reset_index(drop=True)
+            missing_count = initial_count - len(df)
+
+            if missing_count > 0:
+                log.warning(
+                    f"Filtered out {missing_count} samples from {split} split due to missing processed files. "
+                    f"Using {len(df)} available samples."
+                )
+                # Recreate labeller with filtered data
+                self.labeller = GOLabeller(df)
+
         log.info("Initialising Graphein dataset...")
         ds = ProteinDataset(
             root=str(self.data_dir),
@@ -291,18 +313,19 @@ class GeneOntologyDataset(ProteinDataModule):
         data["chain"] = data["pdb"].str[5:]
         data["pdb"] = data["pdb"].str[:4].str.lower()
 
-        if self.obsolete == "drop":
-            log.info("Dropping obsolete PDBs")
-            data = data.loc[
-                ~data["pdb"].str.lower().isin(self.obsolete_pdbs.keys())
-            ]
-            log.info(
-                f"Found {len(data)} examples in {split} after dropping obsolete PDBs"
-            )
-        else:
-            raise NotImplementedError(
-                "Obsolete PDB replacement not implemented"
-            )
+        # cause program stuck
+        # if self.obsolete == "drop":
+        #     log.info("Dropping obsolete PDBs")
+        #     data = data.loc[
+        #         ~data["pdb"].str.lower().isin(self.obsolete_pdbs.keys())
+        #     ]
+        #     log.info(
+        #         f"Found {len(data)} examples in {split} after dropping obsolete PDBs"
+        #     )
+        # else:
+        #     raise NotImplementedError(
+        #         "Obsolete PDB replacement not implemented"
+        #     )
         # logger.info(f"Identified {len(data['label'].unique())} classes in this split: {split}")
 
         if self.shuffle_labels:

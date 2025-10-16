@@ -59,7 +59,7 @@ Welcome to Protein Workshop's documentation!
    modules/proteinworkshop.features
    modules/proteinworkshop.utils
    modules/proteinworkshop.constants
-   modules/proteinworkshop.types
+   modules/proteinworkshop.custom_types
    modules/proteinworkshop.metrics
 
 Indices and tables

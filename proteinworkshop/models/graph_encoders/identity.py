@@ -7,7 +7,7 @@ from jaxtyping import jaxtyped
 from torch_geometric.data import Batch
 
 from proteinworkshop.models.utils import get_aggregation
-from proteinworkshop.types import EncoderOutput
+from proteinworkshop.custom_types import EncoderOutput
 
 
 class IdentityModel(nn.Module):

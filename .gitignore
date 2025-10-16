@@ -3,7 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 proteinworkshop/runs
-!/proteinworkshop/data/sample_proteins
+
 .idea
 # C extensions
 *.so
@@ -142,6 +142,7 @@ proteinworkshop/data/pdb.tar
 proteinworkshop/data/afdb_swissprot_v4
 raw/
 proteinworkshop/data/*
+!/proteinworkshop/data/sample_proteins/*
 !proteinworkshop/data/.gitkeep
 
 logs/

@@ -50,6 +50,7 @@ dependencies = [
     "foldcomp>=0.0.5",
     "mini3di>=0.2.1",
     "pydssp>=0.9.1",
+    "lark>=1.3.0",
 ]
 
 [project.optional-dependencies]

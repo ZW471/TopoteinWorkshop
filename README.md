@@ -17,10 +17,7 @@ TopoteinWorkshop builds upon ProteinWorkshop to provide:
 
 ```bash
 # Create a conda environment using the provided environment file
-conda env create -f environment.yaml
-
-# Activate the environment
-conda activate Topotein
+uv sync
 ```
 
 We use Python 3.10.13 and primarily run on Cambridge CSD3 Ampere GPU cluster. In most cases, you will need a GPU with high memory like A100 80G for training the larger models. 

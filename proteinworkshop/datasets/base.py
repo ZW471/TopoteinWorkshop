@@ -112,11 +112,11 @@ class ProteinDataModule(L.LightningDataModule, ABC):
         return get_obsolete_mapping()
 
     @typechecker
-    def compose_transforms(self, transforms: Iterable[Callable]) -> T.Compose:
+    def compose_transforms(self, transforms: Union[Iterable[Callable], Dict[str, Callable]]) -> T.Compose:
         """Compose an iterable of Transforms into a single transform.
 
-        :param transforms: An iterable of transforms.
-        :type transforms: Iterable[Callable]
+        :param transforms: An iterable of transforms or a dict mapping names to transforms.
+        :type transforms: Union[Iterable[Callable], Dict[str, Callable]]
         :raises ValueError: If ``transforms`` is not a list or dict.
         :return: A single transform.
         :rtype: T.Compose
@@ -339,14 +339,22 @@ class ProteinDataset(Dataset):
             invalid = []
             for f in tqdm(self.processed_file_names):
                 try:
-                    file = torch.load(pathlib.Path(self.root) / "processed" / f, weights_only=False)
+                    file_path = pathlib.Path(self.root) / "processed" / f
+                    if not file_path.exists():
+                        logger.warning(f"Skipping {f}: file not found")
+                        invalid.append(f)
+                        continue
+                    file = torch.load(file_path, weights_only=False)
                     self.data.append(file)
-                except RuntimeError:
+                except (RuntimeError, FileNotFoundError) as e:
+                    logger.warning(f"Skipping {f}: {e}")
                     invalid.append(f)
                     continue
             if len(invalid) > 0:
                 logger.warning(
-                    f"Some files could not be loaded into memory: {invalid}. This may be due to the files being corrupted or not being in the correct format."
+                    f"{len(invalid)} files could not be loaded into memory. "
+                    f"This may be due to missing files, corruption, or incorrect format. "
+                    f"Dataset will continue with {len(self.data)} available samples."
                 )
 
     def download(self):
@@ -391,17 +399,26 @@ class ProteinDataset(Dataset):
             )
             to_download = list(set(to_download))
             logger.info(f"Downloading {len(to_download)} structures")
-            file_format = (
-                self.format[:-3]
-                if self.format.endswith(".gz")
-                else self.format
-            )
-            download_pdb_multiprocessing(
-                to_download, self.raw_dir, format=file_format
-            )
+            if len(to_download) > 0:
+                file_format = (
+                    self.format[:-3]
+                    if self.format.endswith(".gz")
+                    else self.format
+                )
+                try:
+                    download_pdb_multiprocessing(
+                        to_download, self.raw_dir, format=file_format
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to download {len(to_download)} structures due to network error: {e}. "
+                        f"Continuing with available data. Missing structures: {to_download[:10]}{'...' if len(to_download) > 10 else ''}"
+                    )
 
     def len(self) -> int:
         """Return length of the dataset."""
+        if self.in_memory:
+            return len(self.data)
         return len(self.pdb_codes)
 
     @property
@@ -482,6 +499,7 @@ class ProteinDataset(Dataset):
             ]
 
         raw_dir = Path(self.raw_dir)
+        skipped_count = 0
         for index_pdb_tuple in tqdm(index_pdb_tuples):
             try:
                 (
@@ -494,9 +512,13 @@ class ProteinDataset(Dataset):
                 elif path.with_suffix("." + self.format + ".gz").exists():
                     path = str(path.with_suffix("." + self.format + ".gz"))
                 else:
-                    raise FileNotFoundError(
-                        f"{pdb} not found in raw directory. Are you sure it's downloaded and has the format {self.format}?"
+                    chain_str = f"_{self.chains[i]}" if self.chains is not None else ""
+                    logger.warning(
+                        f"Skipping {pdb}{chain_str}: raw file not found in {self.raw_dir}. "
+                        f"Expected format: {self.format}"
                     )
+                    skipped_count += 1
+                    continue
                 graph = protein_to_pyg(
                     path=path,
                     chain_selection=self.chains[i]
@@ -506,8 +528,10 @@ class ProteinDataset(Dataset):
                     store_het=self.store_het,
                 )
             except Exception as e:
-                logger.error(f"Error processing {pdb} {self.chains[i]}: {e}")  # type: ignore
-                raise e
+                chain_str = f" chain {self.chains[i]}" if self.chains is not None else ""
+                logger.warning(f"Error processing {pdb}{chain_str}: {e}. Skipping.")
+                skipped_count += 1
+                continue
 
             if self.out_names is not None:
                 fname = self.out_names[i] + ".pt"
@@ -528,7 +552,12 @@ class ProteinDataset(Dataset):
 
             torch.save(graph, Path(self.processed_dir) / fname)
             self._processed_files.append(fname)
-        logger.info("Completed processing.")
+        if skipped_count > 0:
+            logger.warning(
+                f"Completed processing. Skipped {skipped_count} structures due to missing raw files or processing errors."
+            )
+        else:
+            logger.info("Completed processing.")
 
     def get(self, idx: int) -> Data:
         """

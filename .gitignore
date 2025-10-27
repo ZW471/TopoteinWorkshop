@@ -2,7 +2,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
+proteinworkshop/runs
 
+.idea
 # C extensions
 *.so
 runs/
@@ -141,6 +143,7 @@ proteinworkshop/data/pdb.tar
 proteinworkshop/data/afdb_swissprot_v4
 raw/
 proteinworkshop/data/*
+!/proteinworkshop/data/sample_proteins/*
 !proteinworkshop/data/.gitkeep
 
 logs/

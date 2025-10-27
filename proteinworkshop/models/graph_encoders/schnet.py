@@ -6,7 +6,7 @@ from graphein.protein.tensor.data import ProteinBatch
 from torch_geometric.data import Batch
 from torch_geometric.nn.models import SchNet
 
-from proteinworkshop.types import EncoderOutput
+from proteinworkshop.custom_types import EncoderOutput
 
 
 class SchNetModel(SchNet):

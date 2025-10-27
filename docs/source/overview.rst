@@ -69,7 +69,7 @@ The forward method should be of the form:
 
 .. code-block:: python
 
-    from proteinworkshop.types import EncoderOutput
+    from proteinworkshop.custom_types import EncoderOutput
 
     def forward(self, x: [Batch, ProteinBatch]) -> EncoderOutput:
         node_emb = x.x

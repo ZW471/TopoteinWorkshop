@@ -10,7 +10,7 @@ from torch_scatter import scatter_add
 
 from proteinworkshop.models.graph_encoders.layers import gear_net
 from proteinworkshop.models.utils import get_aggregation
-from proteinworkshop.types import EncoderOutput
+from proteinworkshop.custom_types import EncoderOutput
 
 
 class GearNet(nn.Module):

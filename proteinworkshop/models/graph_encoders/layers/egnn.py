@@ -5,7 +5,7 @@ from torch.nn import Linear, Dropout, Sequential
 from torch_geometric.nn import MessagePassing
 
 from proteinworkshop.models.utils import get_activations
-from proteinworkshop.types import NodeFeatureTensor
+from proteinworkshop.custom_types import NodeFeatureTensor
 
 
 class EGNNLayer(MessagePassing):

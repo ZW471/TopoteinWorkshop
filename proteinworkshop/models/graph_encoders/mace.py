@@ -15,7 +15,7 @@ from proteinworkshop.models.graph_encoders.components import (
     irreps_tools,
 )
 from proteinworkshop.models.utils import get_aggregation
-from proteinworkshop.types import EncoderOutput
+from proteinworkshop.custom_types import EncoderOutput
 
 
 class MACEModel(torch.nn.Module):

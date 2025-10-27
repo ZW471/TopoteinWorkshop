@@ -10,7 +10,7 @@ from proteinworkshop.models.graph_encoders.components.blocks import (
     DimeNetEmbeddingBlock,
 )
 from proteinworkshop.models.utils import get_activations
-from proteinworkshop.types import EncoderOutput
+from proteinworkshop.custom_types import EncoderOutput
 
 
 class DimeNetPPModel(DimeNetPlusPlus):

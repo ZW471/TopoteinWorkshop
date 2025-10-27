@@ -19,7 +19,7 @@ from proteinworkshop.features.node_features import (
     compute_vector_node_features,
 )
 from proteinworkshop.features.representation import transform_representation
-from proteinworkshop.types import (
+from proteinworkshop.custom_types import (
     ScalarEdgeFeature,
     ScalarNodeFeature,
     VectorEdgeFeature,

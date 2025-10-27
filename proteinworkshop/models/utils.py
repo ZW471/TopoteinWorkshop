@@ -15,7 +15,7 @@ from torch_geometric.nn import (
     global_mean_pool,
 )
 
-from proteinworkshop.types import ActivationType, LossType
+from proteinworkshop.custom_types import ActivationType, LossType
 
 
 def exists(val: Any) -> bool:

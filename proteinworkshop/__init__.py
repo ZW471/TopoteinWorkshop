@@ -13,9 +13,6 @@ from omegaconf import OmegaConf
 verbose(False)
 
 
-__version__ = importlib.metadata.version("proteinworkshop")
-
-
 def register_custom_omegaconf_resolvers():
     """
     Register custom OmegaConf resolvers for use in Hydra config files.

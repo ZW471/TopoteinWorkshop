@@ -7,15 +7,18 @@ scalar_node_features:
   - kappa
   - dihedrals
 #  - secondary_structure_one_hot
-vector_node_features: []
+vector_node_features: 
+  - orientation
+  - tetrahedral
 edge_types:
   - knn_16
 scalar_edge_features:
   - edge_distance
-#  - rbf
+  - rbf
 #  - node_features
 # - sequence_distance
-vector_edge_features: []
+vector_edge_features: 
+  - edge_vectors
 sse_types:
   - H
   - E
@@ -23,25 +26,26 @@ sse_types:
 scalar_sse_features:
   - sse_one_hot # 3
   - sse_size # 1
-  - se_pos_encoding # 20
-  - consecutive_angle # 4
-  - torsional_angle # 2
+  # - se_pos_encoding # 20
+  # - consecutive_angle # 4
+  # - torsional_angle # 2
   - eigenvalues
 #  - sse_vector_norms
   - std_wrt_localized_frame
 #  - node_features
-vector_sse_features: []
+vector_sse_features: 
+  - eigenvectors
 
 scalar_pr_features:
   - aa_freq
 #  - aa_std
-  - sse_freq
-#  - sse_std
-  - sse_size_mean_and_std
-  - pr_size
-  - gyration_r
-  - contact_density_and_order
-  - eigenvalues
+#   - sse_freq
+# #  - sse_std
+#   - sse_size_mean_and_std
+#   - pr_size
+#   - gyration_r
+#   - contact_density_and_order
+#   - eigenvalues
 #  - std_wrt_localized_frame
 
 vector_pr_features: []
